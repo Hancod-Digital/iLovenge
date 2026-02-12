@@ -1,0 +1,26 @@
+
+# FVM Version Cache
+.fvm/
+# Flutter
+build/
+.dart_tool/
+.packages
+.pub/
+pubspec.lock
+
+# Android
+android/.gradle/
+android/app/build/
+
+# iOS
+ios/Pods/
+ios/.symlinks/
+ios/Flutter/Flutter.framework
+ios/Flutter/Flutter.podspec
+
+# Misc
+*.log
+*.apk
+*.aab
+*.ipa
+.DS_Store
