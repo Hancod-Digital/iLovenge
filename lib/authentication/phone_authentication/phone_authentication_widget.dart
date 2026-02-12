@@ -607,7 +607,7 @@ class _PhoneAuthenticationWidgetState extends State<PhoneAuthenticationWidget>
                             onTap: () async {
                               GoRouter.of(context).prepareAuthEvent();
                               final user =
-                                  await authManager.signInWithApple(context);
+                                  await authManager.signInWithGoogle(context);
                               if (user == null) {
                                 return;
                               }
@@ -651,7 +651,10 @@ class _PhoneAuthenticationWidgetState extends State<PhoneAuthenticationWidget>
                             child: ClipRRect(
                               borderRadius: BorderRadius.circular(8.0),
                               child: SvgPicture.asset(
-                                'assets/images/Apple.svg',
+                                color: Colors.white,
+                                height: 20,
+                                width: 20,
+                                'assets/images/google.svg',
                                 fit: BoxFit.cover,
                                 alignment: Alignment(0.0, 0.0),
                               ),
