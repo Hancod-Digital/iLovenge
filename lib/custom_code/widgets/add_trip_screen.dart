@@ -98,6 +98,10 @@ class AddTripModel extends FlutterFlowModel {
   TextEditingController departureTerminalController = TextEditingController();
   TextEditingController arrivalTerminalController = TextEditingController();
   TextEditingController seatController = TextEditingController();
+
+  // Airport timezones (set via search selection or OCR)
+  String? departureAirportTimezone;
+  String? arrivalAirportTimezone;
   // Add these controllers for manual entry
 
   // Controllers for outbound flight
@@ -1138,6 +1142,10 @@ class _AddTripScreenState extends State<AddTripScreen> {
                 outboundFlight.arrivalAirportName ?? '';
             _model.departureAirportNameController.text =
                 outboundFlight.departureAirportName ?? '';
+            _model.departureAirportTimezone =
+                outboundFlight.departureAirportTimezone;
+            _model.arrivalAirportTimezone =
+                outboundFlight.arrivalAirportTimezone;
 
             if (outboundFlight.departureDateTime != null) {
               try {
@@ -1182,6 +1190,8 @@ class _AddTripScreenState extends State<AddTripScreen> {
       try {
         // Try parsing with different formats
         final formats = [
+          'yyyy-MM-dd h:mm a',
+          'yyyy-MM-dd hh:mm a',
           'yyyy-MM-dd HH:mm',
           'yyyy-MM-dd HH:mm:ss',
           'dd-MM-yyyy HH:mm',
@@ -1427,13 +1437,9 @@ class _AddTripScreenState extends State<AddTripScreen> {
               const SizedBox(height: 16),
 
               // Departure Airport
-              _buildFormField(
-                controller: _model.departureAirportController,
+              _buildDepartureAirportField(
                 label: 'Airport',
-                isDepAirport: true,
                 hint: 'Enter Departure Airport',
-                validator: (value) =>
-                    value?.isEmpty == true ? 'Required' : null,
               ),
 
               // Departure Time
@@ -1466,13 +1472,9 @@ class _AddTripScreenState extends State<AddTripScreen> {
               const SizedBox(height: 16),
 
               // Arrival Airport
-              _buildFormField(
-                controller: _model.arrivalAirportController,
+              _buildArrivalAirportField(
                 label: 'Airport',
-                isArrAirport: true,
                 hint: 'Enter Arrival Airport',
-                validator: (value) =>
-                    value?.isEmpty == true ? 'Required' : null,
               ),
 
               // Arrival Date
@@ -1527,6 +1529,9 @@ class _AddTripScreenState extends State<AddTripScreen> {
                               _model.departureAirportNameController.text,
                           arrivalAirportName:
                               _model.arrivalAirportNameController.text,
+                          departureAirportTimezone:
+                              _model.departureAirportTimezone,
+                          arrivalAirportTimezone: _model.arrivalAirportTimezone,
                         ));
 
                         // Clear all controllers for next flight
@@ -1538,6 +1543,10 @@ class _AddTripScreenState extends State<AddTripScreen> {
                         _model.departureAirportNameController.clear();
                         _model.arrivalAirportController.clear();
                         _model.arrivalAirportNameController.clear();
+                        _model.departureAirportTimezone = null;
+                        _model.arrivalAirportTimezone = null;
+                        _model.departureAirportTimezone = null;
+                        _model.arrivalAirportTimezone = null;
                         _model.departureTerminalController.clear();
                         _model.arrivalTerminalController.clear();
                         _model.seatController.clear();
@@ -1617,6 +1626,9 @@ class _AddTripScreenState extends State<AddTripScreen> {
                             _model.departureAirportNameController.text,
                         arrivalAirportName:
                             _model.arrivalAirportNameController.text,
+                        departureAirportTimezone:
+                            _model.departureAirportTimezone,
+                        arrivalAirportTimezone: _model.arrivalAirportTimezone,
                       ));
                       if (_model.tripType == 'Round Trip') {
                         // Clear all controllers for next flight
@@ -1635,6 +1647,8 @@ class _AddTripScreenState extends State<AddTripScreen> {
                         _model.arrivalTimeController.clear();
                         _model.departureAirportNameController.clear();
                         _model.arrivalAirportNameController.clear();
+                        _model.departureAirportTimezone = null;
+                        _model.arrivalAirportTimezone = null;
                       }
 
                       _model.currentStep =
@@ -1734,13 +1748,9 @@ class _AddTripScreenState extends State<AddTripScreen> {
               const SizedBox(height: 16),
 
               // Departure Airport
-              _buildFormField(
-                controller: _model.departureAirportController,
-                isDepAirport: true,
+              _buildDepartureAirportField(
                 label: 'Airport',
                 hint: 'Enter Departure Airport',
-                validator: (value) =>
-                    value?.isEmpty == true ? 'Required' : null,
               ),
 
               // Departure Date
@@ -1772,13 +1782,9 @@ class _AddTripScreenState extends State<AddTripScreen> {
               const SizedBox(height: 16),
 
               // Arrival Airport
-              _buildFormField(
-                controller: _model.arrivalAirportController,
-                isArrAirport: true,
+              _buildArrivalAirportField(
                 label: 'Airport',
                 hint: 'Enter Arrival Airport',
-                validator: (value) =>
-                    value?.isEmpty == true ? 'Required' : null,
               ),
 
               // Arrival Date
@@ -1832,6 +1838,9 @@ class _AddTripScreenState extends State<AddTripScreen> {
                               _model.departureAirportNameController.text,
                           arrivalAirportName:
                               _model.arrivalAirportNameController.text,
+                          departureAirportTimezone:
+                              _model.departureAirportTimezone,
+                          arrivalAirportTimezone: _model.arrivalAirportTimezone,
                         ));
 
                         // Clear all controllers for next flight
@@ -1908,6 +1917,9 @@ class _AddTripScreenState extends State<AddTripScreen> {
                             _model.departureAirportNameController.text,
                         arrivalAirportName:
                             _model.arrivalAirportNameController.text,
+                        departureAirportTimezone:
+                            _model.departureAirportTimezone,
+                        arrivalAirportTimezone: _model.arrivalAirportTimezone,
                       ));
 
                       _model.currentStep = 4;
@@ -2141,6 +2153,60 @@ class _AddTripScreenState extends State<AddTripScreen> {
           controller: controller,
           decoration: _getInputDecoration(hint, label: label),
           validator: validator,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDepartureAirportField({
+    required String label,
+    required String hint,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8.0),
+      child: Container(
+        padding: const EdgeInsets.all(5),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(8.0),
+          border: Border.all(
+            color: const Color(0x0E0D1634),
+          ),
+        ),
+        child: DepartureAirportTypeAhead(
+          controller: _model.departureAirportController,
+          airportNameController: _model.departureAirportNameController,
+          decoration: _getInputDecoration(hint, label: label),
+          pageSize: 10,
+          onSelected: (airport) {
+            _model.departureAirportTimezone = airport.airportTimezone;
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget _buildArrivalAirportField({
+    required String label,
+    required String hint,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8.0),
+      child: Container(
+        padding: const EdgeInsets.all(5),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(8.0),
+          border: Border.all(
+            color: const Color(0x0E0D1634),
+          ),
+        ),
+        child: DepartureAirportTypeAhead(
+          controller: _model.arrivalAirportController,
+          airportNameController: _model.arrivalAirportNameController,
+          decoration: _getInputDecoration(hint, label: label),
+          pageSize: 10,
+          onSelected: (airport) {
+            _model.arrivalAirportTimezone = airport.airportTimezone;
+          },
         ),
       ),
     );
@@ -2753,7 +2819,7 @@ class _AddTripScreenState extends State<AddTripScreen> {
                   const SizedBox(height: 4),
                   Text(
                     DateFormat('HH:mm, EEE d MMM')
-                        .format(DateTime.parse(flight.departureDateTime)),
+                        .format(_parseDateTime(flight.departureDateTime)),
                     // _formatDateTime(_preprocessDateTime(flight.departureDateTime)),
                     style: GoogleFonts.rubik(
                       fontWeight: FontWeight.w400,
@@ -2806,7 +2872,7 @@ class _AddTripScreenState extends State<AddTripScreen> {
                       const SizedBox(height: 4),
                       Text(
                         DateFormat('HH:mm, EEE d MMM')
-                            .format(DateTime.parse(flight.arrivalDateTime)),
+                            .format(_parseDateTime(flight.arrivalDateTime)),
                         // _formatDateTime(_preprocessDateTime(flight.arrivalDateTime)),
                         textAlign: TextAlign.end,
                         style: GoogleFonts.rubik(

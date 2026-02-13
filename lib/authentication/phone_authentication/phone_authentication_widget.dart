@@ -599,6 +599,66 @@ class _PhoneAuthenticationWidgetState extends State<PhoneAuthenticationWidget>
                               ),
                             ),
                           ),
+                          if (isiOS)
+                            InkWell(
+                              splashColor: Colors.transparent,
+                              focusColor: Colors.transparent,
+                              hoverColor: Colors.transparent,
+                              highlightColor: Colors.transparent,
+                              onTap: () async {
+                                GoRouter.of(context).prepareAuthEvent();
+                                final user =
+                                    await authManager.signInWithApple(context);
+                                if (user == null) {
+                                  return;
+                                }
+                                _model.auth = await actions.checkAuth();
+                                if (_model.auth!) {
+                                  _model.users = await UsersTable().queryRows(
+                                    queryFn: (q) => q.eqOrNull(
+                                      'id',
+                                      currentUserUid,
+                                    ),
+                                  );
+                                  if (_model.users != null &&
+                                      (_model.users)!.isNotEmpty) {
+                                    await UsersTable().update(
+                                      data: {
+                                        'fcm_token': FFAppState().fcmToken,
+                                      },
+                                      matchingRows: (rows) => rows.eqOrNull(
+                                        'id',
+                                        currentUserUid,
+                                      ),
+                                    );
+
+                                    context.goNamedAuth(
+                                        HomeWidget.routeName, context.mounted);
+                                  } else {
+                                    await UsersTable().insert({
+                                      'id': currentUserUid,
+                                      'user_type': 'CUSTOMER',
+                                      'fcm_token': FFAppState().fcmToken,
+                                    });
+
+                                    context.pushNamedAuth(
+                                        EnterNameWidget.routeName,
+                                        context.mounted);
+                                  }
+                                }
+
+                                safeSetState(() {});
+                              },
+                              child: ClipRRect(
+                                borderRadius: BorderRadius.circular(8.0),
+                                child: SvgPicture.asset(
+                                  color: Colors.white,
+                                  'assets/images/Apple.svg',
+                                  fit: BoxFit.cover,
+                                  alignment: Alignment(0.0, 0.0),
+                                ),
+                              ),
+                            ),
                           InkWell(
                             splashColor: Colors.transparent,
                             focusColor: Colors.transparent,
