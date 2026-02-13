@@ -1,5 +1,6 @@
 export '/backend/schema/util/schema_util.dart';
 
+export 'airport_data_view_struct.dart';
 export 'airport_details_struct.dart';
 export 'amenities_struct.dart';
 export 'cards_struct.dart';

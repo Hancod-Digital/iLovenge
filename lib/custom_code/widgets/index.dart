@@ -6,6 +6,7 @@ export 'home_screen_lounge_card.dart' show HomeScreenLoungeCard;
 export 'my_single_card.dart' show MySingleCard;
 export 'search_result_widget.dart' show SearchResultWidget;
 export 'dotted_border_button.dart' show DottedBorderButton;
+export 'departure_airport_typeahead.dart' show DepartureAirportTypeAhead;
 export 'favourite_list_view.dart' show FavouriteListView;
 export 'update_card_info.dart' show UpdateCardInfo;
 export 'profile_pic.dart' show ProfilePic;

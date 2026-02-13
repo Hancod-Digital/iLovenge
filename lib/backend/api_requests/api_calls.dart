@@ -80,6 +80,7 @@ class SupabaseRPCGroup {
   static UseDashBoardCall useDashBoardCall = UseDashBoardCall();
   static UploadTripCall uploadTripCall = UploadTripCall();
   static EditTripCall editTripCall = EditTripCall();
+  static GetAirportDataCall getAirportDataCall = GetAirportDataCall();
 }
 
 class UseDashBoardCall {
@@ -186,6 +187,51 @@ ${tripDetails}''';
 }
 
 /// End Supabase RPC Group Code
+
+class GetAirportDataCall {
+  Future<ApiCallResponse> call({
+    int? pageNumber = 1,
+    int? pageSize = 10,
+    String? searchTerm,
+    String? countryFilter,
+  }) async {
+    final baseUrl = SupabaseRPCGroup.getBaseUrl();
+
+    final ffApiRequestBody = jsonEncode({
+      'page_number': pageNumber,
+      'page_size': pageSize,
+      'search_term': searchTerm,
+      'country_filter': countryFilter,
+    });
+
+    return ApiManager.instance.makeApiCall(
+      callName: 'getAirportData',
+      apiUrl: '${baseUrl}/rest/v1/rpc/get_airport_data',
+      callType: ApiCallType.POST,
+      headers: SupabaseRPCGroup.headers,
+      params: {},
+      body: ffApiRequestBody,
+      bodyType: BodyType.JSON,
+      returnBody: true,
+      encodeBodyUtf8: false,
+      decodeUtf8: false,
+      cache: false,
+      isStreamingApi: false,
+      alwaysAllowBody: false,
+    );
+  }
+
+  static List<AirportDataViewStruct>? airports(dynamic response) =>
+      (getJsonField(
+        response,
+        r'''$.data''',
+        true,
+      ) as List?)
+          ?.withoutNulls
+          .map((x) => AirportDataViewStruct.maybeFromMap(x))
+          .withoutNulls
+          .toList();
+}
 
 class GetTicketDetailsCall {
   static Future<ApiCallResponse> call({

@@ -2,18 +2,24 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>CLIENT_ID</key>
+	<string>245118608879-p27q80bsr8qjogfn5dj1ro1ujrshdblg.apps.googleusercontent.com</string>
+	<key>REVERSED_CLIENT_ID</key>
+	<string>com.googleusercontent.apps.245118608879-p27q80bsr8qjogfn5dj1ro1ujrshdblg</string>
+	<key>ANDROID_CLIENT_ID</key>
+	<string>245118608879-emnajova9mgirmusfnarpjol1vjuqu0f.apps.googleusercontent.com</string>
 	<key>API_KEY</key>
-	<string>AIzaSyAMW4i4ySQ_rK3N8-G5knonOq4iwRr_vFI</string>
+	<string>AIzaSyAknnYaxH4hAYN0FbfrGYBCtcJT6jTp-HI</string>
 	<key>GCM_SENDER_ID</key>
-	<string>134451030524</string>
+	<string>245118608879</string>
 	<key>PLIST_VERSION</key>
 	<string>1</string>
 	<key>BUNDLE_ID</key>
 	<string>com.ilovenge.mobile</string>
 	<key>PROJECT_ID</key>
-	<string>ilovenge-46587</string>
+	<string>ilovenge-edad3</string>
 	<key>STORAGE_BUCKET</key>
-	<string>ilovenge-46587.firebasestorage.app</string>
+	<string>ilovenge-edad3.firebasestorage.app</string>
 	<key>IS_ADS_ENABLED</key>
 	<false></false>
 	<key>IS_ANALYTICS_ENABLED</key>
@@ -25,6 +31,6 @@
 	<key>IS_SIGNIN_ENABLED</key>
 	<true></true>
 	<key>GOOGLE_APP_ID</key>
-	<string>1:134451030524:ios:97942d3b29850b05cc6a79</string>
+	<string>1:245118608879:ios:1369777a8c7ceacae1421a</string>
 </dict>
 </plist>
