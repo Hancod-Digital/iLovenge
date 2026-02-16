@@ -1454,8 +1454,8 @@ class _AddTripScreenState extends State<AddTripScreen> {
                 controller: _model.seatController,
                 label: 'Seat',
                 hint: 'Enter Seat Number',
-                validator: (value) =>
-                    value?.isEmpty == true ? 'Required' : null,
+                // validator: (value) =>
+                //     value?.isEmpty == true ? 'Required' : null,
               ),
 
               // Departure Terminal

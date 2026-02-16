@@ -47,8 +47,21 @@ Future<bool> addGateNumber() async {
                 FFAppState().depDate = tripNowData['departure_at'];
                 FFAppState().depTime = tripNowData['departure_at'];
                 FFAppState().pnr = tripNowData['pnr_number'];
+                // seat will be evaluated below; initialize to false first
+                FFAppState().seatMissing = false;
               });
               print('Set id in FFAppState: $tripId');
+            }
+
+            // Detect seat missing
+            if (tripNowData.containsKey('seat')) {
+              final seat = tripNowData['seat'];
+              final missingSeat =
+                  seat == null || (seat is String && seat.isEmpty);
+              FFAppState().seatMissing = missingSeat;
+            } else {
+              // No key means we should prompt for seat as well
+              FFAppState().seatMissing = true;
             }
 
             // Check if 'gate_number' key exists

@@ -68,6 +68,12 @@ class FFAppState extends ChangeNotifier {
     _Internet = value;
   }
 
+  bool _seatMissing = false;
+  bool get seatMissing => _seatMissing;
+  set seatMissing(bool value) {
+    _seatMissing = value;
+  }
+
   String _sharedFileBase64 = '';
   String get sharedFileBase64 => _sharedFileBase64;
   set sharedFileBase64(String value) {

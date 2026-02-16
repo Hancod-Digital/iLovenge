@@ -6,6 +6,7 @@ import '/components/no_connection_widget.dart';
 import '/components/shimmer_effects/home_screen_loader/home_screen_loader_widget.dart';
 import '/components/update_gate/update_gate_widget.dart';
 import '/components/update_message/update_message_widget.dart';
+import '/components/update_seat/update_seat_widget.dart';
 import '/flutter_flow/flutter_flow_animations.dart';
 import '/flutter_flow/flutter_flow_icon_button.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
@@ -83,9 +84,14 @@ class _HomeWidgetState extends State<HomeWidget> with TickerProviderStateMixin {
         ),
       );
       _model.gateNotAdded = await actions.addGateNumber();
-      if (_model.gateNotAdded!) {
-        if (functions.isDepartureWithinMinutes(FFAppState().depTime, 180) ==
-            true) {
+      _model.seatNotAdded = await actions.addSeatNumber();
+
+      // Trigger prompts only when we are within 60 minutes of departure.
+      final withinOneHour =
+          functions.isDepartureWithinMinutes(FFAppState().depTime, 60) == true;
+
+      if (withinOneHour) {
+        if (_model.gateNotAdded == true) {
           await showModalBottomSheet(
             isScrollControlled: true,
             backgroundColor: Colors.transparent,
@@ -111,37 +117,65 @@ class _HomeWidgetState extends State<HomeWidget> with TickerProviderStateMixin {
               );
             },
           ).then((value) => safeSetState(() {}));
-
-          FFAppState().update(() {});
         }
-      } else {
-        if (functions.isDepartureWithinMinutes(FFAppState().depTime, 10)) {
-          if (FFAppState().tripStatus == 'new') {
-            await showModalBottomSheet(
-              isScrollControlled: true,
-              backgroundColor: Colors.transparent,
-              isDismissible: false,
-              enableDrag: false,
-              useSafeArea: true,
-              context: context,
-              builder: (context) {
-                return WebViewAware(
-                  child: GestureDetector(
-                    onTap: () {
-                      FocusScope.of(context).unfocus();
-                      FocusManager.instance.primaryFocus?.unfocus();
-                    },
-                    child: Padding(
-                      padding: MediaQuery.viewInsetsOf(context),
-                      child: UpdateMessageWidget(
-                        tripId: FFAppState().currentTripId,
-                      ),
+
+        if (_model.seatNotAdded == true) {
+          await showModalBottomSheet(
+            isScrollControlled: true,
+            backgroundColor: Colors.transparent,
+            isDismissible: false,
+            enableDrag: false,
+            useSafeArea: true,
+            context: context,
+            builder: (context) {
+              return WebViewAware(
+                child: GestureDetector(
+                  onTap: () {
+                    FocusScope.of(context).unfocus();
+                    FocusManager.instance.primaryFocus?.unfocus();
+                  },
+                  child: Padding(
+                    padding: MediaQuery.viewInsetsOf(context),
+                    child: UpdateSeatWidget(
+                      tripId: FFAppState().currentTripId,
+                      updateState: (seat) async {},
                     ),
                   ),
-                );
-              },
-            ).then((value) => safeSetState(() {}));
-          }
+                ),
+              );
+            },
+          ).then((value) => safeSetState(() {}));
+        }
+
+        FFAppState().update(() {});
+      }
+
+      if (functions.isDepartureWithinMinutes(FFAppState().depTime, 10)) {
+        if (FFAppState().tripStatus == 'new') {
+          await showModalBottomSheet(
+            isScrollControlled: true,
+            backgroundColor: Colors.transparent,
+            isDismissible: false,
+            enableDrag: false,
+            useSafeArea: true,
+            context: context,
+            builder: (context) {
+              return WebViewAware(
+                child: GestureDetector(
+                  onTap: () {
+                    FocusScope.of(context).unfocus();
+                    FocusManager.instance.primaryFocus?.unfocus();
+                  },
+                  child: Padding(
+                    padding: MediaQuery.viewInsetsOf(context),
+                    child: UpdateMessageWidget(
+                      tripId: FFAppState().currentTripId,
+                    ),
+                  ),
+                ),
+              );
+            },
+          ).then((value) => safeSetState(() {}));
         }
       }
 
@@ -716,7 +750,7 @@ class _HomeWidgetState extends State<HomeWidget> with TickerProviderStateMixin {
                                                                             Builder(
                                                                           builder:
                                                                               (context) {
-                                                                            if ((functions.isDepartureWithinMinutes(upComingTripsItem.departureAt, 180) == false) &&
+                                                                            if ((functions.isDepartureWithinMinutes(upComingTripsItem.departureAt, 180) == false) ||
                                                                                 (upComingTripsItem.gateNumber == null || upComingTripsItem.gateNumber == '')) {
                                                                               return Column(
                                                                                 mainAxisSize: MainAxisSize.min,
