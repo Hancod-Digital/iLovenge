@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:developer';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -149,17 +150,68 @@ String formatDateTime(DateTime dateTime) {
   return dateTime.toUtc().toIso8601String();
 }
 
-DateTime? parseDateTime(String dateString) {
+DateTime? parseDateTime(String? dateString) {
+  // Gracefully handle null/empty inputs
+  // log('--- $dateString');
   if (dateString == null || dateString.isEmpty) {
-    return null; // ✅ Return null if input is empty
+    return null;
   }
 
+  // Normalize whitespace and trim stray trailing slash/backslash artifacts.
+  final normalized = dateString.trim().replaceAll(RegExp(r'\s+'), ' ');
+  final cleaned = normalized.replaceAll(RegExp(r'[\\\\/]+$'), '').trim();
+
+  // Handle month-year strings like "Feb 2026" or "February 2026"
+  final monthYearRegex = RegExp(r'^[A-Za-z]{3,9}\s+\d{4}$');
+  if (monthYearRegex.hasMatch(cleaned)) {
+    try {
+      final dt = DateFormat('MMM yyyy').parseLoose(cleaned, true);
+      return DateTime.utc(dt.year, dt.month, 1).toLocal();
+    } catch (_) {
+      try {
+        final dt = DateFormat('MMMM yyyy').parseLoose(cleaned, true);
+        return DateTime.utc(dt.year, dt.month, 1).toLocal();
+      } catch (_) {
+        // fall through
+      }
+    }
+  }
+
+  // Try fast path first (handles ISO-8601, RFC3339, etc.)
   try {
-    return DateTime.parse(dateString).toLocal(); // ✅ Convert to local time
-  } catch (e) {
-    print("--++--++--++${dateString}");
-    print("Error parsing date: $e"); // ✅ Log the error for debugging
-    return null; // ✅ Return null if parsing fails
+    return DateTime.parse(cleaned).toLocal();
+  } catch (_) {
+    // Fallback to a set of common non‑ISO formats we see from OCR / APIs.
+    const patterns = [
+      'yyyy-MM-dd HH:mm',
+      'yyyy-MM-dd HH:mm:ss',
+      'yyyy-MM-dd hh:mm a',
+      'yyyy-MM-dd h:mm a',
+      'dd-MM-yyyy HH:mm',
+      'dd-MM-yyyy HH:mm:ss',
+      'MM/dd/yyyy HH:mm',
+      'MM/dd/yyyy HH:mm:ss',
+      'dd MMM yyyy HH:mm',
+      'dd MMM yyyy hh:mm a',
+      "yyyy-MM-dd'T'HH:mm:ssZ",
+      "yyyy-MM-dd'T'HH:mm:ss.SSSZ",
+      'MMM dd, yyyy',
+      'MMM dd yyyy',
+      'MMMM dd, yyyy',
+    ];
+
+    for (final pattern in patterns) {
+      try {
+        return DateFormat(pattern).parse(cleaned, true).toLocal();
+      } catch (_) {
+        // keep trying
+      }
+    }
+
+    // Log once if nothing matched to aid debugging.
+    print("--++--++--++$dateString");
+    print("Error parsing date -- : FormatException: unsupported format");
+    return null;
   }
 }
 
@@ -244,63 +296,6 @@ bool isWithinThreeHours(
   int minutes,
   String? departureDateStr,
 ) {
-// // // Parse Supabase time string (HH:mm:ss) to a TimeOfDay
-// //   final supabaseTime = TimeOfDay(
-// //     hour: int.parse(supabaseTimeStr.split(':')[0]),
-// //     minute: int.parse(supabaseTimeStr.split(':')[1]),
-// //   );
-
-// //   // Get current DateTime
-// //   final now = DateTime.now();
-
-// //   // Create a DateTime for today using the Supabase time
-// //   final supabaseDateTime = DateTime(
-// //     now.year,
-// //     now.month,
-// //     now.day,
-// //     supabaseTime.hour,
-// //     supabaseTime.minute,
-// //   );
-
-// //   // Handle case if Supabase time is on the next day (e.g., 01:00 and now is 23:00)
-// //   final adjustedSupabaseDateTime = supabaseDateTime.isBefore(now)
-// //       ? supabaseDateTime.add(Duration(days: 1))
-// //       : supabaseDateTime;
-
-// //   // Calculate time difference
-// //   final difference = adjustedSupabaseDateTime.difference(now);
-
-// //   // Check if it's within 3 hours
-// //   return difference.inMinutes >= 0 && difference.inHours <= 3;
-//   try {
-//     // 1 & 2: തീയതിയും സമയവും പാഴ്സ് ചെയ്യുക
-//     final departureDate =
-//         DateFormat('yyyy-MM-dd').parseStrict(departureDateStr ?? '');
-//     final departureTimeParts = supabaseTimeStr.split(':');
-//     final departureHour = int.parse(departureTimeParts[0]);
-//     final departureMinute = int.parse(departureTimeParts[1]);
-
-//     final departureDateTime = DateTime(
-//       departureDate.year,
-//       departureDate.month,
-//       departureDate.day,
-//       departureHour,
-//       departureMinute,
-//     );
-
-//     final now = DateTime.now();
-
-//     if (now.isAfter(departureDateTime)) {
-//       return false;
-//     }
-
-//     final difference = departureDateTime.difference(now);
-
-//     return difference.inMinutes <= minutes;
-//   } catch (e) {
-//     print('Error parsing date/time: $e');
-//     return false;
-//   }
   try {
     final departureDate =
         DateFormat('yyyy-MM-dd').parseStrict(departureDateStr ?? '');
@@ -455,15 +450,12 @@ bool isDepartureWithinMinutes(
 
     // 2. Calculate the difference between the departure time and now.
     final difference = departureDateTime.difference(now);
-
+    // log('--- ${difference.inMinutes.toString()}');
     // 3. Return true if the flight is departing within the specified number of minutes.
-    print(difference.inMinutes <= minutes);
+    // log('--- ${difference.inMinutes <= minutes}');
     return difference.inMinutes <= minutes;
   } catch (e) {
-    // This enhanced error message will print the EXACT string that failed to parse,
-    // which is extremely helpful for debugging.
-    print(
-        'Error parsing departure time. Invalid string was: "$departureAtStr". Error: $e');
+    log('--- $e');
     return false; // Return false if the string format is invalid.
   }
 }

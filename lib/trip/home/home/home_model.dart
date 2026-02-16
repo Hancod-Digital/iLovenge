@@ -47,6 +47,7 @@ class HomeModel extends FlutterFlowModel<HomeWidget> {
   List<UsersRow>? user;
   // Stores action output result for [Custom Action - addGateNumber] action in home widget.
   bool? gateNotAdded;
+  bool? seatNotAdded;
   // State field(s) for PageView widget.
   PageController? pageViewController;
 
