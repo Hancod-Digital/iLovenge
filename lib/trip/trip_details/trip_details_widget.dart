@@ -600,16 +600,70 @@ class _TripDetailsWidgetState extends State<TripDetailsWidget> {
                                                 ),
                                           ),
                                         ),
-                                        RichText(
-                                          textScaler:
-                                              MediaQuery.of(context).textScaler,
-                                          text: TextSpan(
-                                            children: [
-                                              TextSpan(
-                                                text: dateTimeFormat(
-                                                    "Hm",
-                                                    widget!.currentTrip!
-                                                        .arrivalTime!),
+                                        Builder(
+                                          builder: (context) {
+                                            final arrivalTime =
+                                                widget!.currentTrip?.arrivalTime ??
+                                                    widget!.currentTrip
+                                                        ?.arrivalAt;
+                                            final arrivalDate =
+                                                widget!.currentTrip?.araivalDate ??
+                                                    widget!.currentTrip
+                                                        ?.arrivalAt;
+
+                                            return RichText(
+                                              textScaler: MediaQuery.of(context)
+                                                  .textScaler,
+                                              text: TextSpan(
+                                                children: [
+                                                  TextSpan(
+                                                    text: arrivalTime != null
+                                                        ? dateTimeFormat(
+                                                            "Hm", arrivalTime)
+                                                        : 'N/A',
+                                                    style: FlutterFlowTheme.of(
+                                                            context)
+                                                        .bodyMedium
+                                                        .override(
+                                                          font: GoogleFonts
+                                                              .rubik(
+                                                            fontWeight:
+                                                                FlutterFlowTheme.of(
+                                                                        context)
+                                                                    .bodyMedium
+                                                                    .fontWeight,
+                                                            fontStyle:
+                                                                FlutterFlowTheme.of(
+                                                                        context)
+                                                                    .bodyMedium
+                                                                    .fontStyle,
+                                                          ),
+                                                          color:
+                                                              FlutterFlowTheme.of(
+                                                                      context)
+                                                                  .secondaryText,
+                                                          letterSpacing: 0.0,
+                                                          fontWeight:
+                                                              FlutterFlowTheme.of(
+                                                                      context)
+                                                                  .bodyMedium
+                                                                  .fontWeight,
+                                                          fontStyle:
+                                                              FlutterFlowTheme.of(
+                                                                      context)
+                                                                  .bodyMedium
+                                                                  .fontStyle,
+                                                        ),
+                                                  ),
+                                                  TextSpan(
+                                                    text: arrivalDate != null
+                                                        ? dateTimeFormat(
+                                                            "\', \'MMM d E",
+                                                            arrivalDate)
+                                                        : '',
+                                                    style: TextStyle(),
+                                                  )
+                                                ],
                                                 style: FlutterFlowTheme.of(
                                                         context)
                                                     .bodyMedium
@@ -643,46 +697,9 @@ class _TripDetailsWidgetState extends State<TripDetailsWidget> {
                                                               .fontStyle,
                                                     ),
                                               ),
-                                              TextSpan(
-                                                text: dateTimeFormat(
-                                                    "\', \'MMM d E",
-                                                    widget!.currentTrip!
-                                                        .araivalDate!),
-                                                style: TextStyle(),
-                                              )
-                                            ],
-                                            style: FlutterFlowTheme.of(context)
-                                                .bodyMedium
-                                                .override(
-                                                  font: GoogleFonts.rubik(
-                                                    fontWeight:
-                                                        FlutterFlowTheme.of(
-                                                                context)
-                                                            .bodyMedium
-                                                            .fontWeight,
-                                                    fontStyle:
-                                                        FlutterFlowTheme.of(
-                                                                context)
-                                                            .bodyMedium
-                                                            .fontStyle,
-                                                  ),
-                                                  color: FlutterFlowTheme.of(
-                                                          context)
-                                                      .secondaryText,
-                                                  letterSpacing: 0.0,
-                                                  fontWeight:
-                                                      FlutterFlowTheme.of(
-                                                              context)
-                                                          .bodyMedium
-                                                          .fontWeight,
-                                                  fontStyle:
-                                                      FlutterFlowTheme.of(
-                                                              context)
-                                                          .bodyMedium
-                                                          .fontStyle,
-                                                ),
-                                          ),
-                                          textAlign: TextAlign.start,
+                                              textAlign: TextAlign.start,
+                                            );
+                                          },
                                         ),
                                         Text(
                                           valueOrDefault<String>(

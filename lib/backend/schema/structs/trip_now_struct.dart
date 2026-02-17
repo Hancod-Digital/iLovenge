@@ -31,6 +31,7 @@ class TripNowStruct extends BaseStruct {
     String? departureAirportName,
     String? departureAt,
     String? arrivalAt,
+    String? belt,
   })  : _seat = seat,
         _airline = airline,
         _id = id,
@@ -53,7 +54,8 @@ class TripNowStruct extends BaseStruct {
         _arrivalAirportName = arrivalAirportName,
         _departureAirportName = departureAirportName,
         _departureAt = departureAt,
-        _arrivalAt = arrivalAt;
+        _arrivalAt = arrivalAt,
+        _belt = belt;
 
   // "seat" field.
   String? _seat;
@@ -216,6 +218,13 @@ class TripNowStruct extends BaseStruct {
 
   bool hasArrivalAt() => _arrivalAt != null;
 
+  // "belt" field.
+  String? _belt;
+  String get belt => _belt ?? '';
+  set belt(String? val) => _belt = val;
+
+  bool hasBelt() => _belt != null;
+
   static TripNowStruct fromMap(Map<String, dynamic> data) => TripNowStruct(
         seat: data['seat'] as String?,
         airline: data['airline'] as String?,
@@ -240,6 +249,7 @@ class TripNowStruct extends BaseStruct {
         departureAirportName: data['departure_airport_name'] as String?,
         departureAt: data['departure_at'] as String?,
         arrivalAt: data['arrival_at'] as String?,
+        belt: data['belt'] as String?,
       );
 
   static TripNowStruct? maybeFromMap(dynamic data) =>
@@ -269,6 +279,7 @@ class TripNowStruct extends BaseStruct {
         'departure_airport_name': _departureAirportName,
         'departure_at': _departureAt,
         'arrival_at': _arrivalAt,
+        'belt': _belt,
       }.withoutNulls;
 
   @override
@@ -363,6 +374,10 @@ class TripNowStruct extends BaseStruct {
         ),
         'arrival_at': serializeParam(
           _arrivalAt,
+          ParamType.String,
+        ),
+        'belt': serializeParam(
+          _belt,
           ParamType.String,
         ),
       }.withoutNulls;
@@ -481,6 +496,11 @@ class TripNowStruct extends BaseStruct {
         ),
         arrivalAt: deserializeParam(
           data['arrival_at'],
+          ParamType.String,
+          false,
+        ),
+        belt: deserializeParam(
+          data['belt'],
           ParamType.String,
           false,
         ),

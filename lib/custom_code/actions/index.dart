@@ -9,6 +9,7 @@ export 'custom_show_snack_bar.dart' show customShowSnackBar;
 export 'is_trip_delayed.dart' show isTripDelayed;
 export 'add_gate_number.dart' show addGateNumber;
 export 'add_seat_number.dart' show addSeatNumber;
+export 'add_belt_number.dart' show addBeltNumber;
 export 'global_internetchecker.dart' show globalInternetchecker;
 export 'handle_incoming_share.dart' show handleIncomingShare;
 export 'set_f_c_m_token.dart' show setFCMToken;

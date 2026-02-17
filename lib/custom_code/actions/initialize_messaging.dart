@@ -40,6 +40,38 @@ Future<void> _firebaseMessagingBackgroundHandler(
   await Firebase.initializeApp();
   debugPrint('Handling a background message ${message.messageId}');
   debugPrint(message.data.toString());
+
+  // Show a local notification while app is in background/terminated.
+  // We keep it minimal (no navigation) because navigator isn't available here.
+  final notification = message.notification;
+  final title = notification?.title ?? message.data['title'] ?? 'New update';
+  final body = notification?.body ?? message.data['body'] ?? '';
+
+  // Make sure the Android channel exists before showing.
+  await _localNotifications
+      .resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin>()
+      ?.createNotificationChannel(_androidChannel);
+
+  final details = NotificationDetails(
+    android: AndroidNotificationDetails(
+      _androidChannel.id,
+      _androidChannel.name,
+      channelDescription: _androidChannel.description,
+      icon: notification?.android?.smallIcon ?? '@mipmap/ic_launcher',
+      importance: Importance.high,
+      priority: Priority.high,
+    ),
+    iOS: const DarwinNotificationDetails(),
+  );
+
+  await _localNotifications.show(
+    notification.hashCode,
+    title,
+    body,
+    details,
+    payload: message.data['route'] ?? '',
+  );
 }
 
 Future initializeMessaging() async {
