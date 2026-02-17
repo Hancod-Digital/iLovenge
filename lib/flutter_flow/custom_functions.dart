@@ -459,3 +459,55 @@ bool isDepartureWithinMinutes(
     return false; // Return false if the string format is invalid.
   }
 }
+
+bool isSeatWindowActive(
+  String departureAtStr,
+  String arrivalAtStr,
+  int minutesBeforeDeparture, [
+  int minutesAfterArrival = 0,
+]) {
+  try {
+    final departureDateTime = DateTime.parse(departureAtStr).toUtc();
+    final arrivalDateTime = DateTime.parse(arrivalAtStr).toUtc();
+    final now = DateTime.now().toUtc();
+
+    if (!arrivalDateTime.isAfter(departureDateTime)) {
+      return false;
+    }
+
+    final windowStart =
+        departureDateTime.subtract(Duration(minutes: minutesBeforeDeparture));
+    final windowEnd =
+        arrivalDateTime.add(Duration(minutes: minutesAfterArrival));
+
+    final isOnOrAfterStart =
+        now.isAtSameMomentAs(windowStart) || now.isAfter(windowStart);
+    final isOnOrBeforeEnd =
+        now.isAtSameMomentAs(windowEnd) || now.isBefore(windowEnd);
+
+    return isOnOrAfterStart && isOnOrBeforeEnd;
+  } catch (e) {
+    log('--- $e');
+    return false;
+  }
+}
+
+bool isArrivalAfterMinutes(
+  String arrivalAtStr,
+  int minutes,
+) {
+  try {
+    final arrivalDateTime = DateTime.parse(arrivalAtStr);
+    final now = DateTime.now().toUtc();
+
+    if (now.isBefore(arrivalDateTime)) {
+      return false;
+    }
+
+    final difference = now.difference(arrivalDateTime);
+    return difference.inMinutes >= minutes;
+  } catch (e) {
+    log('--- $e');
+    return false;
+  }
+}

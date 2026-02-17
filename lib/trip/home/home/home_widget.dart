@@ -7,6 +7,8 @@ import '/components/shimmer_effects/home_screen_loader/home_screen_loader_widget
 import '/components/update_gate/update_gate_widget.dart';
 import '/components/update_message/update_message_widget.dart';
 import '/components/update_seat/update_seat_widget.dart';
+import '/components/update_belt/update_belt_widget.dart';
+import '/trip/edit_trip/edit_trip_widget.dart';
 import '/flutter_flow/flutter_flow_animations.dart';
 import '/flutter_flow/flutter_flow_icon_button.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
@@ -54,6 +56,42 @@ class _HomeWidgetState extends State<HomeWidget> with TickerProviderStateMixin {
 
   final animationsMap = <String, AnimationInfo>{};
 
+  //  Widget _labelWithIcon(
+  //   BuildContext context,
+  //   String assetPath,
+  //   String label,
+  // ) {
+  //   return Row(
+  //     mainAxisSize: MainAxisSize.min,
+  //     children: [
+  //       SvgPicture.asset(
+  //         assetPath,
+  //         width: 22.0,
+  //         height: 22.0,
+  //         colorFilter: ColorFilter.mode(
+  //           FlutterFlowTheme.of(context).secondaryText,
+  //           BlendMode.srcIn,
+  //         ),
+  //       ),
+  //       const SizedBox(width: 8.0),
+  //       Text(
+  //         label,
+  //         style: FlutterFlowTheme.of(context).bodyMedium.override(
+  //               font: GoogleFonts.roboto(
+  //                 fontWeight:
+  //                     FlutterFlowTheme.of(context).bodyMedium.fontWeight,
+  //                 fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
+  //               ),
+  //               color: FlutterFlowTheme.of(context).secondaryText,
+  //               letterSpacing: 0.0,
+  //               fontWeight: FlutterFlowTheme.of(context).bodyMedium.fontWeight,
+  //               fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
+  //             ),
+  //       ),
+  //     ],
+  //   );
+  // }
+
   @override
   void initState() {
     super.initState();
@@ -85,72 +123,111 @@ class _HomeWidgetState extends State<HomeWidget> with TickerProviderStateMixin {
       );
       _model.gateNotAdded = await actions.addGateNumber();
       _model.seatNotAdded = await actions.addSeatNumber();
+      _model.beltNotAdded = await actions.addBeltNumber();
 
-      // Trigger prompts only when we are within 60 minutes of departure.
-      final withinOneHour =
-          functions.isDepartureWithinMinutes(FFAppState().depTime, 60) == true;
+      // Trigger gate prompt within 120 mins, seat from 60 mins before departure
+      // until 60 mins after arrival, belt at arrival, update message 3h after arrival.
+      final withinTwoHours =
+          functions.isDepartureWithinMinutes(FFAppState().depTime, 120) == true;
+      final seatWindowActive = functions.isSeatWindowActive(
+            FFAppState().depTime,
+            FFAppState().arrivalTime,
+            60,
+            60,
+          ) ==
+          true;
+      final arrivalAtOrPast =
+          functions.isArrivalAfterMinutes(FFAppState().arrivalTime, 0) == true;
+      final arrivalPassedThreeHours =
+          functions.isArrivalAfterMinutes(FFAppState().arrivalTime, 180) ==
+              true;
 
-      if (withinOneHour) {
-        if (_model.gateNotAdded == true) {
-          await showModalBottomSheet(
-            isScrollControlled: true,
-            backgroundColor: Colors.transparent,
-            isDismissible: false,
-            enableDrag: false,
-            useSafeArea: true,
-            context: context,
-            builder: (context) {
-              return WebViewAware(
-                child: GestureDetector(
-                  onTap: () {
-                    FocusScope.of(context).unfocus();
-                    FocusManager.instance.primaryFocus?.unfocus();
-                  },
-                  child: Padding(
-                    padding: MediaQuery.viewInsetsOf(context),
-                    child: UpdateGateWidget(
-                      tripId: FFAppState().currentTripId,
-                      updateState: () async {},
-                    ),
+      if (withinTwoHours && _model.gateNotAdded == true) {
+        await showModalBottomSheet(
+          isScrollControlled: true,
+          backgroundColor: Colors.transparent,
+          isDismissible: false,
+          enableDrag: false,
+          useSafeArea: true,
+          context: context,
+          builder: (context) {
+            return WebViewAware(
+              child: GestureDetector(
+                onTap: () {
+                  FocusScope.of(context).unfocus();
+                  FocusManager.instance.primaryFocus?.unfocus();
+                },
+                child: Padding(
+                  padding: MediaQuery.viewInsetsOf(context),
+                  child: UpdateGateWidget(
+                    tripId: FFAppState().currentTripId,
+                    updateState: () async {},
                   ),
                 ),
-              );
-            },
-          ).then((value) => safeSetState(() {}));
-        }
-
-        if (_model.seatNotAdded == true) {
-          await showModalBottomSheet(
-            isScrollControlled: true,
-            backgroundColor: Colors.transparent,
-            isDismissible: false,
-            enableDrag: false,
-            useSafeArea: true,
-            context: context,
-            builder: (context) {
-              return WebViewAware(
-                child: GestureDetector(
-                  onTap: () {
-                    FocusScope.of(context).unfocus();
-                    FocusManager.instance.primaryFocus?.unfocus();
-                  },
-                  child: Padding(
-                    padding: MediaQuery.viewInsetsOf(context),
-                    child: UpdateSeatWidget(
-                      tripId: FFAppState().currentTripId,
-                      updateState: (seat) async {},
-                    ),
-                  ),
-                ),
-              );
-            },
-          ).then((value) => safeSetState(() {}));
-        }
-
-        FFAppState().update(() {});
+              ),
+            );
+          },
+        ).then((value) => safeSetState(() {}));
       }
 
-      if (functions.isDepartureWithinMinutes(FFAppState().depTime, 10)) {
+      if (seatWindowActive && _model.seatNotAdded == true) {
+        await showModalBottomSheet(
+          isScrollControlled: true,
+          backgroundColor: Colors.transparent,
+          isDismissible: false,
+          enableDrag: false,
+          useSafeArea: true,
+          context: context,
+          builder: (context) {
+            return WebViewAware(
+              child: GestureDetector(
+                onTap: () {
+                  FocusScope.of(context).unfocus();
+                  FocusManager.instance.primaryFocus?.unfocus();
+                },
+                child: Padding(
+                  padding: MediaQuery.viewInsetsOf(context),
+                  child: UpdateSeatWidget(
+                    tripId: FFAppState().currentTripId,
+                    updateState: (seat) async {},
+                  ),
+                ),
+              ),
+            );
+          },
+        ).then((value) => safeSetState(() {}));
+      }
+
+      if (_model.beltNotAdded == true && arrivalAtOrPast) {
+        await showModalBottomSheet(
+          isScrollControlled: true,
+          backgroundColor: Colors.transparent,
+          isDismissible: false,
+          enableDrag: false,
+          useSafeArea: true,
+          context: context,
+          builder: (context) {
+            return WebViewAware(
+              child: GestureDetector(
+                onTap: () {
+                  FocusScope.of(context).unfocus();
+                  FocusManager.instance.primaryFocus?.unfocus();
+                },
+                child: Padding(
+                  padding: MediaQuery.viewInsetsOf(context),
+                  child: UpdateBeltWidget(
+                    tripId: FFAppState().currentTripId,
+                    updateState: (belt) async {},
+                  ),
+                ),
+              ),
+            );
+          },
+        ).then((value) => safeSetState(() {}));
+      }
+
+      FFAppState().update(() {});
+      if (arrivalPassedThreeHours) {
         if (FFAppState().tripStatus == 'new') {
           await showModalBottomSheet(
             isScrollControlled: true,
@@ -177,6 +254,38 @@ class _HomeWidgetState extends State<HomeWidget> with TickerProviderStateMixin {
             },
           ).then((value) => safeSetState(() {}));
         }
+      }
+
+      final arrivalPassedThreeAndHalfHours =
+          functions.isArrivalAfterMinutes(FFAppState().arrivalTime, 210) ==
+              true;
+
+      if (arrivalPassedThreeAndHalfHours &&
+          FFAppState().tripStatus != 'completed') {
+        await showModalBottomSheet(
+          isScrollControlled: true,
+          backgroundColor: Colors.transparent,
+          isDismissible: false,
+          enableDrag: false,
+          useSafeArea: true,
+          context: context,
+          builder: (context) {
+            return WebViewAware(
+              child: GestureDetector(
+                onTap: () {
+                  FocusScope.of(context).unfocus();
+                  FocusManager.instance.primaryFocus?.unfocus();
+                },
+                child: Padding(
+                  padding: MediaQuery.viewInsetsOf(context),
+                  child: UpdateMessageWidget(
+                    tripId: FFAppState().currentTripId,
+                  ),
+                ),
+              ),
+            );
+          },
+        ).then((value) => safeSetState(() {}));
       }
 
       await actions.handleIncomingShare(
@@ -263,6 +372,124 @@ class _HomeWidgetState extends State<HomeWidget> with TickerProviderStateMixin {
                           );
                         }
                         final containerUseDashBoardResponse = snapshot.data!;
+                        final tripNowList = UserHomeDataStruct.maybeFromMap(
+                                    containerUseDashBoardResponse.jsonBody)
+                                ?.tripNow
+                                ?.toList() ??
+                            [];
+
+                        // Prioritize a trip that landed within the last hour (for belt capture)
+                        // over the next upcoming trip returned by the dashboard API.
+                        TripNowStruct? recentArrivalTrip;
+                        try {
+                          final arrivalIso = FFAppState().arrivalTime;
+                          final departureIso = FFAppState().depTime;
+
+                          String _hms(DateTime dt) => dt
+                              .toLocal()
+                              .toIso8601String()
+                              .split('T')[1]
+                              .split('.')
+                              .first;
+                          String _ymd(DateTime dt) =>
+                              dt.toLocal().toIso8601String().split('T').first;
+
+                          if (arrivalIso.isNotEmpty) {
+                            final arrivalUtc =
+                                DateTime.parse(arrivalIso).toUtc();
+                            final nowUtc = DateTime.now().toUtc();
+                            final minutesSinceArrival =
+                                nowUtc.difference(arrivalUtc).inMinutes;
+
+                            if (minutesSinceArrival >= 0 &&
+                                minutesSinceArrival <= 60) {
+                              DateTime? departureUtc;
+                              try {
+                                if (departureIso.isNotEmpty) {
+                                  departureUtc =
+                                      DateTime.parse(departureIso).toUtc();
+                                }
+                              } catch (_) {}
+
+                              String? safeDepartureTime;
+                              String? safeDepartureDate;
+                              if (departureUtc != null) {
+                                safeDepartureTime = _hms(departureUtc);
+                                safeDepartureDate = _ymd(departureUtc);
+                              } else if (departureIso.isNotEmpty) {
+                                // Best-effort: strip time part if depTime carried an ISO string.
+                                final depParts = departureIso.split('T');
+                                if (depParts.length == 2) {
+                                  safeDepartureDate = depParts.first;
+                                  safeDepartureTime =
+                                      depParts.last.split('.').first;
+                                }
+                              }
+
+                              recentArrivalTrip = TripNowStruct(
+                                id: FFAppState().currentTripId,
+                                airline: FFAppState().airline,
+                                flightNumber: FFAppState().flightNumber,
+                                flightClass: FFAppState().flightClass,
+                                departureAirport: FFAppState().departureAirport,
+                                departureAirportName:
+                                    FFAppState().departureAirportName,
+                                departureTimezone:
+                                    FFAppState().departureTimezone,
+                                departureTerminal:
+                                    FFAppState().departureTerminal,
+                                departureAt: departureIso,
+                                departureTime: safeDepartureTime,
+                                departureDate: safeDepartureDate,
+                                arrivalAirport: FFAppState().arrivalAirport,
+                                arrivalAirportName:
+                                    FFAppState().arrivalAirportName,
+                                arrivalTimezone: FFAppState().arrivalTimezone,
+                                arrivalTerminal: FFAppState().arrivalTerminal,
+                                arrivalAt: arrivalIso,
+                                arrivalTime: _hms(arrivalUtc),
+                                araivalDate: _ymd(arrivalUtc),
+                                gateNumber: FFAppState().gateNumber,
+                                seat: FFAppState().seat,
+                                pnrNumber: FFAppState().pnr,
+                                belt: FFAppState().beltNumber,
+                              );
+                            }
+                          }
+                        } catch (_) {
+                          // If parsing fails, just ignore and fallback to upcoming trip.
+                        }
+
+                        // Build display list with recent arrival (if present) at the front.
+                        final displayTripList = <TripNowStruct>[
+                          if (recentArrivalTrip != null) recentArrivalTrip!,
+                          ...tripNowList.where((t) =>
+                              recentArrivalTrip == null ||
+                              t.id != recentArrivalTrip!.id ||
+                              recentArrivalTrip!.id.isEmpty),
+                        ];
+
+                        final upComingTrips = displayTripList
+                            .where((trip) =>
+                                functions.isArrivalAfterMinutes(
+                                  trip.arrivalAt,
+                                  60,
+                                ) !=
+                                true)
+                            .toList();
+
+                        final firstTrip = upComingTrips.isNotEmpty
+                            ? upComingTrips.first
+                            : null;
+
+                        final showTerminalPrompt = firstTrip != null &&
+                            functions.isDepartureWithinMinutes(
+                                  firstTrip.departureAt,
+                                  180,
+                                ) ==
+                                true &&
+                            (firstTrip.departureTerminal == null ||
+                                firstTrip.departureTerminal == '');
 
                         return Container(
                           height: MediaQuery.sizeOf(context).height,
@@ -628,6 +855,226 @@ class _HomeWidgetState extends State<HomeWidget> with TickerProviderStateMixin {
                                       ),
                                     ),
                                   ),
+                                  if (showTerminalPrompt)
+                                    Padding(
+                                      padding: EdgeInsetsDirectional.fromSTEB(
+                                          18.0, 10.0, 15.0, 12.0),
+                                      child: Container(
+                                        width: double.infinity,
+                                        decoration: BoxDecoration(
+                                          color: FlutterFlowTheme.of(context)
+                                              .secondary,
+                                          borderRadius:
+                                              BorderRadius.circular(16.0),
+                                        ),
+                                        child: Padding(
+                                          padding: EdgeInsets.all(12.0),
+                                          child: Row(
+                                            mainAxisSize: MainAxisSize.max,
+                                            children: [
+                                              Expanded(
+                                                child: Column(
+                                                  mainAxisSize:
+                                                      MainAxisSize.max,
+                                                  crossAxisAlignment:
+                                                      CrossAxisAlignment.start,
+                                                  children: [
+                                                    Text(
+                                                      'Add departure terminal',
+                                                      style: FlutterFlowTheme
+                                                              .of(context)
+                                                          .titleSmall
+                                                          .override(
+                                                            font: GoogleFonts
+                                                                .inter(
+                                                              fontWeight:
+                                                                  FontWeight
+                                                                      .w700,
+                                                              fontStyle:
+                                                                  FlutterFlowTheme.of(
+                                                                          context)
+                                                                      .titleSmall
+                                                                      .fontStyle,
+                                                            ),
+                                                            color: FlutterFlowTheme
+                                                                    .of(context)
+                                                                .primaryText,
+                                                            letterSpacing: 0.0,
+                                                            fontWeight:
+                                                                FontWeight.w700,
+                                                            fontStyle:
+                                                                FlutterFlowTheme.of(
+                                                                        context)
+                                                                    .titleSmall
+                                                                    .fontStyle,
+                                                          ),
+                                                    ),
+                                                    Padding(
+                                                      padding:
+                                                          EdgeInsetsDirectional
+                                                              .fromSTEB(
+                                                                  0.0,
+                                                                  4.0,
+                                                                  0.0,
+                                                                  0.0),
+                                                      child: Text(
+                                                        'Please add your terminal at least 3 hours before departure.',
+                                                        style:
+                                                            FlutterFlowTheme.of(
+                                                                    context)
+                                                                .labelMedium
+                                                                .override(
+                                                                  font:
+                                                                      GoogleFonts
+                                                                          .inter(
+                                                                    fontWeight:
+                                                                        FontWeight
+                                                                            .w500,
+                                                                    fontStyle: FlutterFlowTheme.of(
+                                                                            context)
+                                                                        .labelMedium
+                                                                        .fontStyle,
+                                                                  ),
+                                                                  color: FlutterFlowTheme.of(
+                                                                          context)
+                                                                      .secondaryText,
+                                                                  letterSpacing:
+                                                                      0.0,
+                                                                  fontWeight:
+                                                                      FontWeight
+                                                                          .w500,
+                                                                  fontStyle: FlutterFlowTheme.of(
+                                                                          context)
+                                                                      .labelMedium
+                                                                      .fontStyle,
+                                                                ),
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
+                                              FFButtonWidget(
+                                                onPressed: () async {
+                                                  if (firstTrip == null) {
+                                                    return;
+                                                  }
+                                                  final tripStruct = TripStruct(
+                                                    pnrNumber:
+                                                        firstTrip.pnrNumber,
+                                                    departureDate: functions
+                                                        .parseDateTime(firstTrip
+                                                            .departureDate),
+                                                    airline: firstTrip.airline,
+                                                    flightNumber:
+                                                        firstTrip.flightNumber,
+                                                    flightClass:
+                                                        firstTrip.flightClass,
+                                                    departureAirport: firstTrip
+                                                        .departureAirport,
+                                                    departureTimezone: firstTrip
+                                                        .departureTimezone,
+                                                    departureTerminal: firstTrip
+                                                        .departureTerminal,
+                                                    seat: firstTrip.seat,
+                                                    gateNumber:
+                                                        firstTrip.gateNumber,
+                                                    arrivalAirport: firstTrip
+                                                        .arrivalAirport,
+                                                    arrivalTime: functions
+                                                        .convertTimeToDateTime(
+                                                            firstTrip
+                                                                .arrivalTime),
+                                                    arrivalTimezone: firstTrip
+                                                        .arrivalTimezone,
+                                                    arrivalTerminal: firstTrip
+                                                        .arrivalTerminal,
+                                                    createdAt: functions
+                                                        .parseDateTime(firstTrip
+                                                            .createdAt),
+                                                    updatedAt: functions
+                                                        .parseDateTime(firstTrip
+                                                            .updatedAt),
+                                                    id: firstTrip.id,
+                                                    departureTime: functions
+                                                        .convertTimeToDateTime(
+                                                            firstTrip
+                                                                .departureTime),
+                                                    araivalDate: functions
+                                                        .parseDateTime(firstTrip
+                                                            .araivalDate),
+                                                    departureAirportName:
+                                                        firstTrip
+                                                            .departureAirportName,
+                                                    arrivalAirportName:
+                                                        firstTrip
+                                                            .arrivalAirportName,
+                                                    departureAt: functions
+                                                        .parseDateTime(firstTrip
+                                                            .departureAt),
+                                                    arrivalAt: functions
+                                                        .parseDateTime(firstTrip
+                                                            .arrivalAt),
+                                                    belt: firstTrip.belt,
+                                                  );
+
+                                                  await context.pushNamed(
+                                                    EditTripWidget.routeName,
+                                                    queryParameters: {
+                                                      'ticketDetails':
+                                                          serializeParam(
+                                                        tripStruct,
+                                                        ParamType.DataStruct,
+                                                      ),
+                                                    }.withoutNulls,
+                                                  );
+                                                },
+                                                text: 'Add',
+                                                options: FFButtonOptions(
+                                                  height: 36.0,
+                                                  padding: EdgeInsetsDirectional
+                                                      .fromSTEB(
+                                                          16.0, 0.0, 16.0, 0.0),
+                                                  iconPadding:
+                                                      EdgeInsetsDirectional
+                                                          .fromSTEB(0.0, 0.0,
+                                                              0.0, 0.0),
+                                                  color: FlutterFlowTheme.of(
+                                                          context)
+                                                      .primary,
+                                                  textStyle: FlutterFlowTheme
+                                                          .of(context)
+                                                      .bodyMedium
+                                                      .override(
+                                                        font: GoogleFonts.inter(
+                                                          fontWeight:
+                                                              FontWeight.w600,
+                                                          fontStyle:
+                                                              FlutterFlowTheme.of(
+                                                                      context)
+                                                                  .bodyMedium
+                                                                  .fontStyle,
+                                                        ),
+                                                        color: Colors.white,
+                                                        letterSpacing: 0.0,
+                                                        fontWeight:
+                                                            FontWeight.w600,
+                                                        fontStyle:
+                                                            FlutterFlowTheme.of(
+                                                                    context)
+                                                                .bodyMedium
+                                                                .fontStyle,
+                                                      ),
+                                                  elevation: 0.0,
+                                                  borderRadius:
+                                                      BorderRadius.circular(
+                                                          8.0),
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ),
+                                    ),
                                   Stack(
                                     children: [
                                       Column(
@@ -664,26 +1111,9 @@ class _HomeWidgetState extends State<HomeWidget> with TickerProviderStateMixin {
                                       Container(
                                         child: Builder(
                                           builder: (context) {
-                                            if (UserHomeDataStruct.maybeFromMap(
-                                                            containerUseDashBoardResponse
-                                                                .jsonBody)
-                                                        ?.tripNow !=
-                                                    null &&
-                                                (UserHomeDataStruct.maybeFromMap(
-                                                            containerUseDashBoardResponse
-                                                                .jsonBody)
-                                                        ?.tripNow)!
-                                                    .isNotEmpty) {
+                                            if (upComingTrips.isNotEmpty) {
                                               return Builder(
                                                 builder: (context) {
-                                                  final upComingTrips =
-                                                      UserHomeDataStruct.maybeFromMap(
-                                                                  containerUseDashBoardResponse
-                                                                      .jsonBody)
-                                                              ?.tripNow
-                                                              ?.toList() ??
-                                                          [];
-
                                                   return Container(
                                                     width: double.infinity,
                                                     height: 289.0,
@@ -718,129 +1148,149 @@ class _HomeWidgetState extends State<HomeWidget> with TickerProviderStateMixin {
                                                               final upComingTripsItem =
                                                                   upComingTrips[
                                                                       upComingTripsIndex];
-                                                              return Column(
-                                                                mainAxisSize:
-                                                                    MainAxisSize
-                                                                        .max,
-                                                                children: [
-                                                                  Align(
-                                                                    alignment:
-                                                                        AlignmentDirectional(
-                                                                            0.0,
-                                                                            6.58),
-                                                                    child:
-                                                                        Padding(
-                                                                      padding: EdgeInsetsDirectional.fromSTEB(
-                                                                          18.0,
-                                                                          0.0,
-                                                                          15.0,
-                                                                          0.0),
+                                                              final withinOneHour =
+                                                                  functions
+                                                                      .isWithinThreeHours(
+                                                                upComingTripsItem
+                                                                    .departureTime,
+                                                                60,
+                                                                upComingTripsItem
+                                                                    .departureDate,
+                                                              );
+                                                              final withinTwoHours =
+                                                                  functions
+                                                                      .isWithinThreeHours(
+                                                                upComingTripsItem
+                                                                    .departureTime,
+                                                                120,
+                                                                upComingTripsItem
+                                                                    .departureDate,
+                                                              );
+                                                              final withinThreeHours =
+                                                                  functions
+                                                                      .isWithinThreeHours(
+                                                                upComingTripsItem
+                                                                    .departureTime,
+                                                                180,
+                                                                upComingTripsItem
+                                                                    .departureDate,
+                                                              );
+                                                              final arrivalPassed =
+                                                                  functions
+                                                                          .isArrivalAfterMinutes(
+                                                                        upComingTripsItem
+                                                                            .arrivalAt,
+                                                                        0,
+                                                                      ) ==
+                                                                      true;
+                                                              final departurePassed =
+                                                                  functions
+                                                                          .isArrivalAfterMinutes(
+                                                                        upComingTripsItem
+                                                                            .departureAt,
+                                                                        0,
+                                                                      ) ==
+                                                                      true;
+                                                              final showSeatCard =
+                                                                  functions
+                                                                          .isSeatWindowActive(
+                                                                        upComingTripsItem
+                                                                            .departureAt,
+                                                                        upComingTripsItem
+                                                                            .arrivalAt,
+                                                                        60,
+                                                                        60,
+                                                                      ) ==
+                                                                      true;
+
+                                                              print(
+                                                                  'one hour: $withinOneHour');
+                                                              print(
+                                                                  'two hours: $withinTwoHours');
+                                                              print(
+                                                                  'three hours: $withinThreeHours');
+                                                              print(
+                                                                  'arrival passed: $arrivalPassed');
+                                                              print(
+                                                                  'departure passed: $departurePassed');
+                                                              print(
+                                                                  'show seat card: $showSeatCard');
+                                                              print(
+                                                                  'belt - ${upComingTripsItem.belt.isEmpty}');
+                                                              return SingleChildScrollView(
+                                                                child: Column(
+                                                                  mainAxisSize:
+                                                                      MainAxisSize
+                                                                          .min,
+                                                                  children: [
+                                                                    Align(
+                                                                      alignment:
+                                                                          AlignmentDirectional(
+                                                                              0.0,
+                                                                              6.58),
                                                                       child:
-                                                                          Container(
-                                                                        width: double
-                                                                            .infinity,
-                                                                        decoration:
-                                                                            BoxDecoration(
-                                                                          color:
-                                                                              Color(0xFFF9F9F9),
-                                                                          borderRadius:
-                                                                              BorderRadius.circular(24.0),
-                                                                        ),
+                                                                          Padding(
+                                                                        padding: EdgeInsetsDirectional.fromSTEB(
+                                                                            18.0,
+                                                                            0.0,
+                                                                            15.0,
+                                                                            0.0),
                                                                         child:
-                                                                            Builder(
-                                                                          builder:
-                                                                              (context) {
-                                                                            if ((functions.isDepartureWithinMinutes(upComingTripsItem.departureAt, 180) == false) ||
-                                                                                (upComingTripsItem.gateNumber == null || upComingTripsItem.gateNumber == '')) {
-                                                                              return Column(
-                                                                                mainAxisSize: MainAxisSize.min,
-                                                                                children: [
-                                                                                  Padding(
-                                                                                    padding: EdgeInsets.all(10.0),
-                                                                                    child: Container(
-                                                                                      decoration: BoxDecoration(
-                                                                                        color: FlutterFlowTheme.of(context).secondary,
-                                                                                        boxShadow: [
-                                                                                          BoxShadow(
-                                                                                            blurRadius: 5.0,
-                                                                                            color: Color(0x33000000),
-                                                                                            offset: Offset(
-                                                                                              0.0,
-                                                                                              1.0,
-                                                                                            ),
-                                                                                          )
-                                                                                        ],
-                                                                                        borderRadius: BorderRadius.circular(20.0),
-                                                                                      ),
-                                                                                      child: Padding(
-                                                                                        padding: EdgeInsets.all(14.0),
-                                                                                        child: Column(
-                                                                                          mainAxisSize: MainAxisSize.min,
-                                                                                          children: [
-                                                                                            Row(
-                                                                                              mainAxisSize: MainAxisSize.max,
-                                                                                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                                                                              children: [
-                                                                                                Builder(
-                                                                                                  builder: (context) {
-                                                                                                    if (functions.isDepartureWithinMinutes(upComingTripsItem.departureAt, 240)) {
-                                                                                                      return Container(
-                                                                                                        width: 80.0,
-                                                                                                        decoration: BoxDecoration(),
-                                                                                                        child: AutoSizeText(
-                                                                                                          dateTimeFormat("EEE dd", functions.parseDateTime(upComingTripsItem.departureDate)),
-                                                                                                          textAlign: TextAlign.start,
-                                                                                                          maxLines: 2,
-                                                                                                          minFontSize: 14.0,
-                                                                                                          style: FlutterFlowTheme.of(context).bodyMedium.override(
-                                                                                                                font: GoogleFonts.roboto(
-                                                                                                                  fontWeight: FlutterFlowTheme.of(context).bodyMedium.fontWeight,
-                                                                                                                  fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
-                                                                                                                ),
-                                                                                                                color: FlutterFlowTheme.of(context).customColor1,
-                                                                                                                fontSize: 14.0,
-                                                                                                                letterSpacing: 0.0,
-                                                                                                                fontWeight: FlutterFlowTheme.of(context).bodyMedium.fontWeight,
-                                                                                                                fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
-                                                                                                              ),
-                                                                                                        ),
-                                                                                                      );
-                                                                                                    } else {
-                                                                                                      return Container(
-                                                                                                        width: 80.0,
-                                                                                                        decoration: BoxDecoration(),
-                                                                                                        child: AutoSizeText(
-                                                                                                          dateTimeFormat("EEE dd", functions.parseDateTime(upComingTripsItem.departureDate)),
-                                                                                                          textAlign: TextAlign.start,
-                                                                                                          maxLines: 2,
-                                                                                                          minFontSize: 14.0,
-                                                                                                          style: FlutterFlowTheme.of(context).bodyMedium.override(
-                                                                                                                font: GoogleFonts.roboto(
-                                                                                                                  fontWeight: FontWeight.bold,
-                                                                                                                  fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
-                                                                                                                ),
-                                                                                                                color: Color(0xFF4C596C),
-                                                                                                                fontSize: 16.0,
-                                                                                                                letterSpacing: 0.0,
-                                                                                                                fontWeight: FontWeight.bold,
-                                                                                                                fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
-                                                                                                              ),
-                                                                                                        ),
-                                                                                                      );
-                                                                                                    }
-                                                                                                  },
-                                                                                                ),
-                                                                                                Builder(
-                                                                                                  builder: (context) {
-                                                                                                    if (functions.isDepartureWithinMinutes(upComingTripsItem.departureAt, 240)) {
-                                                                                                      return Container(
-                                                                                                        width: 80.0,
-                                                                                                        decoration: BoxDecoration(),
-                                                                                                        child: Align(
-                                                                                                          alignment: AlignmentDirectional(1.0, 0.0),
+                                                                            Container(
+                                                                          width:
+                                                                              double.infinity,
+                                                                          decoration:
+                                                                              BoxDecoration(
+                                                                            color:
+                                                                                Color(0xFFF9F9F9),
+                                                                            borderRadius:
+                                                                                BorderRadius.circular(24.0),
+                                                                          ),
+                                                                          child:
+                                                                              Builder(
+                                                                            builder:
+                                                                                (context) {
+                                                                              final isWithinThreeHoursBeforeDeparture = functions.isDepartureWithinMinutes(upComingTripsItem.departureAt, 180) == true;
+                                                                              final isGateMissing = upComingTripsItem.gateNumber == null || upComingTripsItem.gateNumber == '';
+                                                                              if (!showSeatCard && !departurePassed && (!isWithinThreeHoursBeforeDeparture || isGateMissing)) {
+                                                                                return Column(
+                                                                                  mainAxisSize: MainAxisSize.min,
+                                                                                  children: [
+                                                                                    Padding(
+                                                                                      padding: EdgeInsets.all(10.0),
+                                                                                      child: Container(
+                                                                                        decoration: BoxDecoration(
+                                                                                          color: FlutterFlowTheme.of(context).secondary,
+                                                                                          boxShadow: [
+                                                                                            BoxShadow(
+                                                                                              blurRadius: 5.0,
+                                                                                              color: Color(0x33000000),
+                                                                                              offset: Offset(
+                                                                                                0.0,
+                                                                                                1.0,
+                                                                                              ),
+                                                                                            )
+                                                                                          ],
+                                                                                          borderRadius: BorderRadius.circular(20.0),
+                                                                                        ),
+                                                                                        child: Padding(
+                                                                                          padding: EdgeInsets.all(14.0),
+                                                                                          child: Column(
+                                                                                            mainAxisSize: MainAxisSize.min,
+                                                                                            children: [
+                                                                                              Row(
+                                                                                                mainAxisSize: MainAxisSize.max,
+                                                                                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                                                                                children: [
+                                                                                                  Builder(
+                                                                                                    builder: (context) {
+                                                                                                      if (functions.isDepartureWithinMinutes(upComingTripsItem.departureAt, 240)) {
+                                                                                                        return Container(
+                                                                                                          width: 80.0,
+                                                                                                          decoration: BoxDecoration(),
                                                                                                           child: AutoSizeText(
-                                                                                                            dateTimeFormat("EEE dd", functions.parseDateTime(upComingTripsItem.araivalDate)),
-                                                                                                            textAlign: TextAlign.end,
+                                                                                                            dateTimeFormat("EEE dd", functions.parseDateTime(upComingTripsItem.departureDate)),
+                                                                                                            textAlign: TextAlign.start,
                                                                                                             maxLines: 2,
                                                                                                             minFontSize: 14.0,
                                                                                                             style: FlutterFlowTheme.of(context).bodyMedium.override(
@@ -855,17 +1305,14 @@ class _HomeWidgetState extends State<HomeWidget> with TickerProviderStateMixin {
                                                                                                                   fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
                                                                                                                 ),
                                                                                                           ),
-                                                                                                        ),
-                                                                                                      );
-                                                                                                    } else {
-                                                                                                      return Container(
-                                                                                                        width: 80.0,
-                                                                                                        decoration: BoxDecoration(),
-                                                                                                        child: Align(
-                                                                                                          alignment: AlignmentDirectional(1.0, 0.0),
+                                                                                                        );
+                                                                                                      } else {
+                                                                                                        return Container(
+                                                                                                          width: 80.0,
+                                                                                                          decoration: BoxDecoration(),
                                                                                                           child: AutoSizeText(
-                                                                                                            dateTimeFormat("EEE dd", functions.parseDateTime(upComingTripsItem.araivalDate)),
-                                                                                                            textAlign: TextAlign.end,
+                                                                                                            dateTimeFormat("EEE dd", functions.parseDateTime(upComingTripsItem.departureDate)),
+                                                                                                            textAlign: TextAlign.start,
                                                                                                             maxLines: 2,
                                                                                                             minFontSize: 14.0,
                                                                                                             style: FlutterFlowTheme.of(context).bodyMedium.override(
@@ -880,77 +1327,80 @@ class _HomeWidgetState extends State<HomeWidget> with TickerProviderStateMixin {
                                                                                                                   fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
                                                                                                                 ),
                                                                                                           ),
-                                                                                                        ),
-                                                                                                      );
-                                                                                                    }
-                                                                                                  },
-                                                                                                ),
-                                                                                              ],
-                                                                                            ),
-                                                                                            Row(
-                                                                                              mainAxisSize: MainAxisSize.max,
-                                                                                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                                                                              children: [
-                                                                                                Builder(
-                                                                                                  builder: (context) {
-                                                                                                    if (functions.isDepartureWithinMinutes(upComingTripsItem.departureAt, 240)) {
-                                                                                                      return Container(
-                                                                                                        width: 80.0,
-                                                                                                        decoration: BoxDecoration(),
-                                                                                                        child: AutoSizeText(
-                                                                                                          dateTimeFormat("MMM yyyy", functions.parseDateTime(upComingTripsItem.departureDate)),
-                                                                                                          textAlign: TextAlign.start,
-                                                                                                          maxLines: 2,
-                                                                                                          minFontSize: 14.0,
-                                                                                                          style: FlutterFlowTheme.of(context).bodyMedium.override(
-                                                                                                                font: GoogleFonts.roboto(
-                                                                                                                  fontWeight: FlutterFlowTheme.of(context).bodyMedium.fontWeight,
-                                                                                                                  fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
-                                                                                                                ),
-                                                                                                                color: FlutterFlowTheme.of(context).customColor1,
-                                                                                                                fontSize: 12.0,
-                                                                                                                letterSpacing: 0.0,
-                                                                                                                fontWeight: FlutterFlowTheme.of(context).bodyMedium.fontWeight,
-                                                                                                                fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
-                                                                                                              ),
-                                                                                                        ),
-                                                                                                      );
-                                                                                                    } else {
-                                                                                                      return Container(
-                                                                                                        width: 80.0,
-                                                                                                        decoration: BoxDecoration(),
-                                                                                                        child: AutoSizeText(
-                                                                                                          dateTimeFormat("MMM yyyy", functions.parseDateTime(upComingTripsItem.departureDate)),
-                                                                                                          textAlign: TextAlign.start,
-                                                                                                          maxLines: 2,
-                                                                                                          minFontSize: 14.0,
-                                                                                                          style: FlutterFlowTheme.of(context).bodyMedium.override(
-                                                                                                                font: GoogleFonts.roboto(
-                                                                                                                  fontWeight: FontWeight.normal,
-                                                                                                                  fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
-                                                                                                                ),
-                                                                                                                color: Color(0xFF4C596C),
-                                                                                                                fontSize: 12.0,
-                                                                                                                letterSpacing: 0.0,
-                                                                                                                fontWeight: FontWeight.normal,
-                                                                                                                fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
-                                                                                                              ),
-                                                                                                        ),
-                                                                                                      );
-                                                                                                    }
-                                                                                                  },
-                                                                                                ),
-                                                                                                Builder(
-                                                                                                  builder: (context) {
-                                                                                                    if (functions.isDepartureWithinMinutes(upComingTripsItem.departureAt, 240)) {
-                                                                                                      return Container(
-                                                                                                        width: 80.0,
-                                                                                                        decoration: BoxDecoration(),
-                                                                                                        child: Align(
-                                                                                                          alignment: AlignmentDirectional(1.0, 0.0),
+                                                                                                        );
+                                                                                                      }
+                                                                                                    },
+                                                                                                  ),
+                                                                                                  Builder(
+                                                                                                    builder: (context) {
+                                                                                                      if (functions.isDepartureWithinMinutes(upComingTripsItem.departureAt, 240)) {
+                                                                                                        return Container(
+                                                                                                          width: 80.0,
+                                                                                                          decoration: BoxDecoration(),
+                                                                                                          child: Align(
+                                                                                                            alignment: AlignmentDirectional(1.0, 0.0),
+                                                                                                            child: AutoSizeText(
+                                                                                                              dateTimeFormat("EEE dd", functions.parseDateTime(upComingTripsItem.araivalDate)),
+                                                                                                              textAlign: TextAlign.end,
+                                                                                                              maxLines: 2,
+                                                                                                              minFontSize: 14.0,
+                                                                                                              style: FlutterFlowTheme.of(context).bodyMedium.override(
+                                                                                                                    font: GoogleFonts.roboto(
+                                                                                                                      fontWeight: FlutterFlowTheme.of(context).bodyMedium.fontWeight,
+                                                                                                                      fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
+                                                                                                                    ),
+                                                                                                                    color: FlutterFlowTheme.of(context).customColor1,
+                                                                                                                    fontSize: 14.0,
+                                                                                                                    letterSpacing: 0.0,
+                                                                                                                    fontWeight: FlutterFlowTheme.of(context).bodyMedium.fontWeight,
+                                                                                                                    fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
+                                                                                                                  ),
+                                                                                                            ),
+                                                                                                          ),
+                                                                                                        );
+                                                                                                      } else {
+                                                                                                        return Container(
+                                                                                                          width: 80.0,
+                                                                                                          decoration: BoxDecoration(),
+                                                                                                          child: Align(
+                                                                                                            alignment: AlignmentDirectional(1.0, 0.0),
+                                                                                                            child: AutoSizeText(
+                                                                                                              dateTimeFormat("EEE dd", functions.parseDateTime(upComingTripsItem.araivalDate)),
+                                                                                                              textAlign: TextAlign.end,
+                                                                                                              maxLines: 2,
+                                                                                                              minFontSize: 14.0,
+                                                                                                              style: FlutterFlowTheme.of(context).bodyMedium.override(
+                                                                                                                    font: GoogleFonts.roboto(
+                                                                                                                      fontWeight: FontWeight.bold,
+                                                                                                                      fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
+                                                                                                                    ),
+                                                                                                                    color: Color(0xFF4C596C),
+                                                                                                                    fontSize: 16.0,
+                                                                                                                    letterSpacing: 0.0,
+                                                                                                                    fontWeight: FontWeight.bold,
+                                                                                                                    fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
+                                                                                                                  ),
+                                                                                                            ),
+                                                                                                          ),
+                                                                                                        );
+                                                                                                      }
+                                                                                                    },
+                                                                                                  ),
+                                                                                                ],
+                                                                                              ),
+                                                                                              Row(
+                                                                                                mainAxisSize: MainAxisSize.max,
+                                                                                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                                                                                children: [
+                                                                                                  Builder(
+                                                                                                    builder: (context) {
+                                                                                                      if (functions.isDepartureWithinMinutes(upComingTripsItem.departureAt, 240)) {
+                                                                                                        return Container(
+                                                                                                          width: 80.0,
+                                                                                                          decoration: BoxDecoration(),
                                                                                                           child: AutoSizeText(
-                                                                                                            dateTimeFormat("MMM yyyy", functions.parseDateTime(dateTimeFormat("MMM  yyyy", functions.parseDateTime(upComingTripsItem.araivalDate)))),
-                                                                                                            textAlign: TextAlign.end,
+                                                                                                            dateTimeFormat("MMM yyyy", functions.parseDateTime(upComingTripsItem.departureDate)),
+                                                                                                            textAlign: TextAlign.start,
                                                                                                             maxLines: 2,
                                                                                                             minFontSize: 14.0,
                                                                                                             style: FlutterFlowTheme.of(context).bodyMedium.override(
@@ -965,17 +1415,14 @@ class _HomeWidgetState extends State<HomeWidget> with TickerProviderStateMixin {
                                                                                                                   fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
                                                                                                                 ),
                                                                                                           ),
-                                                                                                        ),
-                                                                                                      );
-                                                                                                    } else {
-                                                                                                      return Container(
-                                                                                                        width: 80.0,
-                                                                                                        decoration: BoxDecoration(),
-                                                                                                        child: Align(
-                                                                                                          alignment: AlignmentDirectional(1.0, 0.0),
+                                                                                                        );
+                                                                                                      } else {
+                                                                                                        return Container(
+                                                                                                          width: 80.0,
+                                                                                                          decoration: BoxDecoration(),
                                                                                                           child: AutoSizeText(
-                                                                                                            dateTimeFormat("MMM yyyy", functions.parseDateTime(upComingTripsItem.araivalDate)),
-                                                                                                            textAlign: TextAlign.end,
+                                                                                                            dateTimeFormat("MMM yyyy", functions.parseDateTime(upComingTripsItem.departureDate)),
+                                                                                                            textAlign: TextAlign.start,
                                                                                                             maxLines: 2,
                                                                                                             minFontSize: 14.0,
                                                                                                             style: FlutterFlowTheme.of(context).bodyMedium.override(
@@ -990,84 +1437,77 @@ class _HomeWidgetState extends State<HomeWidget> with TickerProviderStateMixin {
                                                                                                                   fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
                                                                                                                 ),
                                                                                                           ),
-                                                                                                        ),
-                                                                                                      );
-                                                                                                    }
-                                                                                                  },
-                                                                                                ),
-                                                                                              ],
-                                                                                            ),
-                                                                                            Padding(
-                                                                                              padding: EdgeInsetsDirectional.fromSTEB(0.0, 5.0, 0.0, 0.0),
-                                                                                              child: Row(
-                                                                                                mainAxisSize: MainAxisSize.max,
-                                                                                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                                                                                children: [
-                                                                                                  Row(
-                                                                                                    mainAxisSize: MainAxisSize.max,
-                                                                                                    children: [
-                                                                                                      FlutterFlowIconButton(
-                                                                                                        borderRadius: 38.0,
-                                                                                                        buttonSize: 30.0,
-                                                                                                        fillColor: Color(0xFFF1F3F6),
-                                                                                                        icon: Icon(
-                                                                                                          Icons.arrow_outward,
-                                                                                                          color: Color(0xFF2D343F),
-                                                                                                          size: 15.0,
-                                                                                                        ),
-                                                                                                        onPressed: () {
-                                                                                                          print('IconButton pressed ...');
-                                                                                                        },
-                                                                                                      ),
-                                                                                                      Builder(
-                                                                                                        builder: (context) {
-                                                                                                          if (functions.isDepartureWithinMinutes(upComingTripsItem.departureAt, 240)) {
-                                                                                                            return Padding(
-                                                                                                              padding: EdgeInsetsDirectional.fromSTEB(10.0, 0.0, 0.0, 0.0),
-                                                                                                              child: Text(
-                                                                                                                dateTimeFormat("Hm", functions.convertTimeToDateTime(upComingTripsItem.departureTime)),
-                                                                                                                style: FlutterFlowTheme.of(context).bodyMedium.override(
-                                                                                                                      font: GoogleFonts.roboto(
-                                                                                                                        fontWeight: FontWeight.normal,
-                                                                                                                        fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
-                                                                                                                      ),
-                                                                                                                      color: FlutterFlowTheme.of(context).customColor1,
-                                                                                                                      fontSize: 18.0,
-                                                                                                                      letterSpacing: 0.0,
-                                                                                                                      fontWeight: FontWeight.normal,
-                                                                                                                      fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
-                                                                                                                    ),
-                                                                                                              ),
-                                                                                                            );
-                                                                                                          } else {
-                                                                                                            return Padding(
-                                                                                                              padding: EdgeInsetsDirectional.fromSTEB(10.0, 0.0, 0.0, 0.0),
-                                                                                                              child: Text(
-                                                                                                                dateTimeFormat("Hm", functions.convertTimeToDateTime(upComingTripsItem.departureTime)),
-                                                                                                                style: FlutterFlowTheme.of(context).bodyMedium.override(
-                                                                                                                      font: GoogleFonts.roboto(
-                                                                                                                        fontWeight: FontWeight.normal,
-                                                                                                                        fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
-                                                                                                                      ),
-                                                                                                                      color: Color(0xFF2D343F),
-                                                                                                                      fontSize: 18.0,
-                                                                                                                      letterSpacing: 0.0,
-                                                                                                                      fontWeight: FontWeight.normal,
-                                                                                                                      fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
-                                                                                                                    ),
-                                                                                                              ),
-                                                                                                            );
-                                                                                                          }
-                                                                                                        },
-                                                                                                      ),
-                                                                                                    ],
+                                                                                                        );
+                                                                                                      }
+                                                                                                    },
                                                                                                   ),
-                                                                                                  Row(
-                                                                                                    mainAxisSize: MainAxisSize.max,
-                                                                                                    children: [
-                                                                                                      Transform.rotate(
-                                                                                                        angle: 90.0 * (math.pi / 180),
-                                                                                                        child: FlutterFlowIconButton(
+                                                                                                  Builder(
+                                                                                                    builder: (context) {
+                                                                                                      if (functions.isDepartureWithinMinutes(upComingTripsItem.departureAt, 240)) {
+                                                                                                        return Container(
+                                                                                                          width: 80.0,
+                                                                                                          decoration: BoxDecoration(),
+                                                                                                          child: Align(
+                                                                                                            alignment: AlignmentDirectional(1.0, 0.0),
+                                                                                                            child: AutoSizeText(
+                                                                                                              dateTimeFormat("MMM yyyy", functions.parseDateTime(dateTimeFormat("MMM  yyyy", functions.parseDateTime(upComingTripsItem.araivalDate)))),
+                                                                                                              textAlign: TextAlign.end,
+                                                                                                              maxLines: 2,
+                                                                                                              minFontSize: 14.0,
+                                                                                                              style: FlutterFlowTheme.of(context).bodyMedium.override(
+                                                                                                                    font: GoogleFonts.roboto(
+                                                                                                                      fontWeight: FlutterFlowTheme.of(context).bodyMedium.fontWeight,
+                                                                                                                      fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
+                                                                                                                    ),
+                                                                                                                    color: FlutterFlowTheme.of(context).customColor1,
+                                                                                                                    fontSize: 12.0,
+                                                                                                                    letterSpacing: 0.0,
+                                                                                                                    fontWeight: FlutterFlowTheme.of(context).bodyMedium.fontWeight,
+                                                                                                                    fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
+                                                                                                                  ),
+                                                                                                            ),
+                                                                                                          ),
+                                                                                                        );
+                                                                                                      } else {
+                                                                                                        return Container(
+                                                                                                          width: 80.0,
+                                                                                                          decoration: BoxDecoration(),
+                                                                                                          child: Align(
+                                                                                                            alignment: AlignmentDirectional(1.0, 0.0),
+                                                                                                            child: AutoSizeText(
+                                                                                                              dateTimeFormat("MMM yyyy", functions.parseDateTime(upComingTripsItem.araivalDate)),
+                                                                                                              textAlign: TextAlign.end,
+                                                                                                              maxLines: 2,
+                                                                                                              minFontSize: 14.0,
+                                                                                                              style: FlutterFlowTheme.of(context).bodyMedium.override(
+                                                                                                                    font: GoogleFonts.roboto(
+                                                                                                                      fontWeight: FontWeight.normal,
+                                                                                                                      fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
+                                                                                                                    ),
+                                                                                                                    color: Color(0xFF4C596C),
+                                                                                                                    fontSize: 12.0,
+                                                                                                                    letterSpacing: 0.0,
+                                                                                                                    fontWeight: FontWeight.normal,
+                                                                                                                    fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
+                                                                                                                  ),
+                                                                                                            ),
+                                                                                                          ),
+                                                                                                        );
+                                                                                                      }
+                                                                                                    },
+                                                                                                  ),
+                                                                                                ],
+                                                                                              ),
+                                                                                              Padding(
+                                                                                                padding: EdgeInsetsDirectional.fromSTEB(0.0, 5.0, 0.0, 0.0),
+                                                                                                child: Row(
+                                                                                                  mainAxisSize: MainAxisSize.max,
+                                                                                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                                                                                  children: [
+                                                                                                    Row(
+                                                                                                      mainAxisSize: MainAxisSize.max,
+                                                                                                      children: [
+                                                                                                        FlutterFlowIconButton(
                                                                                                           borderRadius: 38.0,
                                                                                                           buttonSize: 30.0,
                                                                                                           fillColor: Color(0xFFF1F3F6),
@@ -1080,1243 +1520,843 @@ class _HomeWidgetState extends State<HomeWidget> with TickerProviderStateMixin {
                                                                                                             print('IconButton pressed ...');
                                                                                                           },
                                                                                                         ),
-                                                                                                      ),
-                                                                                                      Builder(
-                                                                                                        builder: (context) {
-                                                                                                          if (functions.isDepartureWithinMinutes(upComingTripsItem.departureAt, 240)) {
-                                                                                                            return Padding(
-                                                                                                              padding: EdgeInsetsDirectional.fromSTEB(10.0, 0.0, 0.0, 0.0),
-                                                                                                              child: Text(
-                                                                                                                dateTimeFormat("Hm", functions.convertTimeToDateTime(upComingTripsItem.arrivalTime)),
-                                                                                                                style: FlutterFlowTheme.of(context).bodyMedium.override(
-                                                                                                                      font: GoogleFonts.roboto(
+                                                                                                        Builder(
+                                                                                                          builder: (context) {
+                                                                                                            if (functions.isDepartureWithinMinutes(upComingTripsItem.departureAt, 240)) {
+                                                                                                              return Padding(
+                                                                                                                padding: EdgeInsetsDirectional.fromSTEB(10.0, 0.0, 0.0, 0.0),
+                                                                                                                child: Text(
+                                                                                                                  dateTimeFormat("Hm", functions.convertTimeToDateTime(upComingTripsItem.departureTime)),
+                                                                                                                  style: FlutterFlowTheme.of(context).bodyMedium.override(
+                                                                                                                        font: GoogleFonts.roboto(
+                                                                                                                          fontWeight: FontWeight.normal,
+                                                                                                                          fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
+                                                                                                                        ),
+                                                                                                                        color: FlutterFlowTheme.of(context).customColor1,
+                                                                                                                        fontSize: 18.0,
+                                                                                                                        letterSpacing: 0.0,
                                                                                                                         fontWeight: FontWeight.normal,
                                                                                                                         fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
                                                                                                                       ),
-                                                                                                                      color: FlutterFlowTheme.of(context).customColor1,
-                                                                                                                      fontSize: 18.0,
-                                                                                                                      letterSpacing: 0.0,
-                                                                                                                      fontWeight: FontWeight.normal,
-                                                                                                                      fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
-                                                                                                                    ),
-                                                                                                              ),
-                                                                                                            );
-                                                                                                          } else {
-                                                                                                            return Padding(
-                                                                                                              padding: EdgeInsetsDirectional.fromSTEB(10.0, 0.0, 0.0, 0.0),
-                                                                                                              child: Text(
-                                                                                                                dateTimeFormat("Hm", functions.convertTimeToDateTime(upComingTripsItem.arrivalTime)),
-                                                                                                                style: FlutterFlowTheme.of(context).bodyMedium.override(
-                                                                                                                      font: GoogleFonts.roboto(
+                                                                                                                ),
+                                                                                                              );
+                                                                                                            } else {
+                                                                                                              return Padding(
+                                                                                                                padding: EdgeInsetsDirectional.fromSTEB(10.0, 0.0, 0.0, 0.0),
+                                                                                                                child: Text(
+                                                                                                                  dateTimeFormat("Hm", functions.convertTimeToDateTime(upComingTripsItem.departureTime)),
+                                                                                                                  style: FlutterFlowTheme.of(context).bodyMedium.override(
+                                                                                                                        font: GoogleFonts.roboto(
+                                                                                                                          fontWeight: FontWeight.normal,
+                                                                                                                          fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
+                                                                                                                        ),
+                                                                                                                        color: Color(0xFF2D343F),
+                                                                                                                        fontSize: 18.0,
+                                                                                                                        letterSpacing: 0.0,
                                                                                                                         fontWeight: FontWeight.normal,
                                                                                                                         fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
                                                                                                                       ),
-                                                                                                                      color: Color(0xFF2D343F),
-                                                                                                                      fontSize: 18.0,
-                                                                                                                      letterSpacing: 0.0,
-                                                                                                                      fontWeight: FontWeight.normal,
-                                                                                                                      fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
-                                                                                                                    ),
-                                                                                                              ),
-                                                                                                            );
-                                                                                                          }
-                                                                                                        },
-                                                                                                      ),
-                                                                                                    ],
-                                                                                                  ),
-                                                                                                ],
-                                                                                              ),
-                                                                                            ),
-                                                                                            Padding(
-                                                                                              padding: EdgeInsetsDirectional.fromSTEB(0.0, 5.0, 0.0, 0.0),
-                                                                                              child: Row(
-                                                                                                mainAxisSize: MainAxisSize.max,
-                                                                                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                                                                                children: [
-                                                                                                  Builder(
-                                                                                                    builder: (context) {
-                                                                                                      if (functions.isDepartureWithinMinutes(upComingTripsItem.departureAt, 240) == true) {
-                                                                                                        return Text(
-                                                                                                          upComingTripsItem.departureAirport,
-                                                                                                          style: FlutterFlowTheme.of(context).bodyMedium.override(
-                                                                                                                font: GoogleFonts.radley(
-                                                                                                                  fontWeight: FontWeight.w600,
-                                                                                                                  fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
                                                                                                                 ),
-                                                                                                                color: FlutterFlowTheme.of(context).tertiary,
-                                                                                                                fontSize: 26.0,
-                                                                                                                letterSpacing: 0.0,
-                                                                                                                fontWeight: FontWeight.w600,
-                                                                                                                fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
-                                                                                                              ),
-                                                                                                        );
-                                                                                                      } else {
-                                                                                                        return Text(
-                                                                                                          upComingTripsItem.departureAirport,
-                                                                                                          style: FlutterFlowTheme.of(context).bodyMedium.override(
-                                                                                                                font: GoogleFonts.radley(
-                                                                                                                  fontWeight: FontWeight.w600,
-                                                                                                                  fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
-                                                                                                                ),
-                                                                                                                color: FlutterFlowTheme.of(context).customColor1,
-                                                                                                                fontSize: 26.0,
-                                                                                                                letterSpacing: 0.0,
-                                                                                                                fontWeight: FontWeight.w600,
-                                                                                                                fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
-                                                                                                              ),
-                                                                                                        );
-                                                                                                      }
-                                                                                                    },
-                                                                                                  ),
-                                                                                                  Column(
-                                                                                                    mainAxisSize: MainAxisSize.max,
-                                                                                                    children: [
-                                                                                                      Row(
-                                                                                                        mainAxisSize: MainAxisSize.max,
-                                                                                                        children: [
-                                                                                                          Padding(
-                                                                                                            padding: EdgeInsetsDirectional.fromSTEB(0.0, 0.0, 0.0, 2.0),
-                                                                                                            child: Text(
-                                                                                                              '-------',
-                                                                                                              style: FlutterFlowTheme.of(context).bodyMedium.override(
-                                                                                                                    fontFamily: FlutterFlowTheme.of(context).bodyMediumFamily,
-                                                                                                                    color: FlutterFlowTheme.of(context).alternate,
-                                                                                                                    letterSpacing: 0.0,
-                                                                                                                    useGoogleFonts: !FlutterFlowTheme.of(context).bodyMediumIsCustom,
-                                                                                                                  ),
-                                                                                                            ),
-                                                                                                          ),
-                                                                                                          FaIcon(
-                                                                                                            FontAwesomeIcons.plane,
-                                                                                                            color: FlutterFlowTheme.of(context).primary,
-                                                                                                            size: 18.0,
-                                                                                                          ),
-                                                                                                          Padding(
-                                                                                                            padding: EdgeInsetsDirectional.fromSTEB(0.0, 0.0, 0.0, 2.0),
-                                                                                                            child: Text(
-                                                                                                              '-------',
-                                                                                                              style: FlutterFlowTheme.of(context).bodyMedium.override(
-                                                                                                                    fontFamily: FlutterFlowTheme.of(context).bodyMediumFamily,
-                                                                                                                    color: FlutterFlowTheme.of(context).alternate,
-                                                                                                                    letterSpacing: 0.0,
-                                                                                                                    useGoogleFonts: !FlutterFlowTheme.of(context).bodyMediumIsCustom,
-                                                                                                                  ),
-                                                                                                            ),
-                                                                                                          ),
-                                                                                                        ],
-                                                                                                      ),
-                                                                                                      Padding(
-                                                                                                        padding: EdgeInsetsDirectional.fromSTEB(0.0, 5.0, 0.0, 0.0),
-                                                                                                        child: Text(
-                                                                                                          upComingTripsItem.airline,
-                                                                                                          style: FlutterFlowTheme.of(context).bodyMedium.override(
-                                                                                                                font: GoogleFonts.roboto(
-                                                                                                                  fontWeight: FontWeight.w500,
-                                                                                                                  fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
-                                                                                                                ),
-                                                                                                                color: Color(0xFF4C596C),
-                                                                                                                fontSize: 12.0,
-                                                                                                                letterSpacing: 0.0,
-                                                                                                                fontWeight: FontWeight.w500,
-                                                                                                                fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
-                                                                                                              ),
+                                                                                                              );
+                                                                                                            }
+                                                                                                          },
                                                                                                         ),
-                                                                                                      ),
-                                                                                                    ],
-                                                                                                  ),
-                                                                                                  Builder(
-                                                                                                    builder: (context) {
-                                                                                                      if (functions.isDepartureWithinMinutes(upComingTripsItem.departureAt, 240) == true) {
-                                                                                                        return Text(
-                                                                                                          upComingTripsItem.arrivalAirport,
-                                                                                                          style: FlutterFlowTheme.of(context).bodyMedium.override(
-                                                                                                                font: GoogleFonts.radley(
-                                                                                                                  fontWeight: FontWeight.w600,
-                                                                                                                  fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
-                                                                                                                ),
-                                                                                                                color: FlutterFlowTheme.of(context).tertiary,
-                                                                                                                fontSize: 26.0,
-                                                                                                                letterSpacing: 0.0,
-                                                                                                                fontWeight: FontWeight.w600,
-                                                                                                                fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
-                                                                                                              ),
-                                                                                                        );
-                                                                                                      } else {
-                                                                                                        return Text(
-                                                                                                          upComingTripsItem.arrivalAirport,
-                                                                                                          style: FlutterFlowTheme.of(context).bodyMedium.override(
-                                                                                                                font: GoogleFonts.radley(
-                                                                                                                  fontWeight: FontWeight.w600,
-                                                                                                                  fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
-                                                                                                                ),
-                                                                                                                color: FlutterFlowTheme.of(context).customColor1,
-                                                                                                                fontSize: 26.0,
-                                                                                                                letterSpacing: 0.0,
-                                                                                                                fontWeight: FontWeight.w600,
-                                                                                                                fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
-                                                                                                              ),
-                                                                                                        );
-                                                                                                      }
-                                                                                                    },
-                                                                                                  ),
-                                                                                                ],
-                                                                                              ),
-                                                                                            ),
-                                                                                            Builder(
-                                                                                              builder: (context) {
-                                                                                                if (functions.isDepartureWithinMinutes(upComingTripsItem.departureAt, 240) == true) {
-                                                                                                  return Row(
-                                                                                                    mainAxisSize: MainAxisSize.max,
-                                                                                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                                                                                    children: [
-                                                                                                      Text(
-                                                                                                        (String var1) {
-                                                                                                          return 'Terminal ' + var1;
-                                                                                                        }(upComingTripsItem.departureTerminal),
-                                                                                                        style: FlutterFlowTheme.of(context).bodyMedium.override(
-                                                                                                              font: GoogleFonts.roboto(
-                                                                                                                fontWeight: FlutterFlowTheme.of(context).bodyMedium.fontWeight,
-                                                                                                                fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
-                                                                                                              ),
-                                                                                                              color: FlutterFlowTheme.of(context).tertiary,
-                                                                                                              fontSize: 12.0,
-                                                                                                              letterSpacing: 0.0,
-                                                                                                              fontWeight: FlutterFlowTheme.of(context).bodyMedium.fontWeight,
-                                                                                                              fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
+                                                                                                      ],
+                                                                                                    ),
+                                                                                                    Row(
+                                                                                                      mainAxisSize: MainAxisSize.max,
+                                                                                                      children: [
+                                                                                                        Transform.rotate(
+                                                                                                          angle: 90.0 * (math.pi / 180),
+                                                                                                          child: FlutterFlowIconButton(
+                                                                                                            borderRadius: 38.0,
+                                                                                                            buttonSize: 30.0,
+                                                                                                            fillColor: Color(0xFFF1F3F6),
+                                                                                                            icon: Icon(
+                                                                                                              Icons.arrow_outward,
+                                                                                                              color: Color(0xFF2D343F),
+                                                                                                              size: 15.0,
                                                                                                             ),
-                                                                                                      ),
-                                                                                                      Text(
-                                                                                                        (String var1) {
-                                                                                                          return 'Terminal ' + var1;
-                                                                                                        }(upComingTripsItem.arrivalTerminal),
-                                                                                                        style: FlutterFlowTheme.of(context).bodyMedium.override(
-                                                                                                              font: GoogleFonts.roboto(
-                                                                                                                fontWeight: FlutterFlowTheme.of(context).bodyMedium.fontWeight,
-                                                                                                                fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
-                                                                                                              ),
-                                                                                                              color: FlutterFlowTheme.of(context).tertiary,
-                                                                                                              fontSize: 12.0,
-                                                                                                              letterSpacing: 0.0,
-                                                                                                              fontWeight: FlutterFlowTheme.of(context).bodyMedium.fontWeight,
-                                                                                                              fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
-                                                                                                            ),
-                                                                                                      ),
-                                                                                                    ],
-                                                                                                  );
-                                                                                                } else {
-                                                                                                  return Row(
-                                                                                                    mainAxisSize: MainAxisSize.max,
-                                                                                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                                                                                    children: [
-                                                                                                      Text(
-                                                                                                        (String var1) {
-                                                                                                          return 'Terminal ' + var1;
-                                                                                                        }(upComingTripsItem.departureTerminal),
-                                                                                                        style: FlutterFlowTheme.of(context).bodyMedium.override(
-                                                                                                              font: GoogleFonts.roboto(
-                                                                                                                fontWeight: FlutterFlowTheme.of(context).bodyMedium.fontWeight,
-                                                                                                                fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
-                                                                                                              ),
-                                                                                                              color: FlutterFlowTheme.of(context).customColor1,
-                                                                                                              fontSize: 12.0,
-                                                                                                              letterSpacing: 0.0,
-                                                                                                              fontWeight: FlutterFlowTheme.of(context).bodyMedium.fontWeight,
-                                                                                                              fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
-                                                                                                            ),
-                                                                                                      ),
-                                                                                                      Text(
-                                                                                                        (String var1) {
-                                                                                                          return 'Terminal ' + var1;
-                                                                                                        }(upComingTripsItem.arrivalTerminal),
-                                                                                                        style: FlutterFlowTheme.of(context).bodyMedium.override(
-                                                                                                              font: GoogleFonts.roboto(
-                                                                                                                fontWeight: FlutterFlowTheme.of(context).bodyMedium.fontWeight,
-                                                                                                                fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
-                                                                                                              ),
-                                                                                                              color: FlutterFlowTheme.of(context).customColor1,
-                                                                                                              fontSize: 12.0,
-                                                                                                              letterSpacing: 0.0,
-                                                                                                              fontWeight: FlutterFlowTheme.of(context).bodyMedium.fontWeight,
-                                                                                                              fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
-                                                                                                            ),
-                                                                                                      ),
-                                                                                                    ],
-                                                                                                  );
-                                                                                                }
-                                                                                              },
-                                                                                            ),
-                                                                                          ],
-                                                                                        ),
-                                                                                      ),
-                                                                                    ),
-                                                                                  ),
-                                                                                  Padding(
-                                                                                    padding: EdgeInsetsDirectional.fromSTEB(10.0, 0.0, 10.0, 10.0),
-                                                                                    child: InkWell(
-                                                                                      splashColor: Colors.transparent,
-                                                                                      focusColor: Colors.transparent,
-                                                                                      hoverColor: Colors.transparent,
-                                                                                      highlightColor: Colors.transparent,
-                                                                                      onTap: () async {
-                                                                                        context.pushNamed(
-                                                                                          TripDetailsWidget.routeName,
-                                                                                          queryParameters: {
-                                                                                            'currentTrip': serializeParam(
-                                                                                              TripStruct(
-                                                                                                pnrNumber: upComingTripsItem.pnrNumber,
-                                                                                                departureDate: functions.parseDateTime(upComingTripsItem.departureDate),
-                                                                                                airline: upComingTripsItem.airline,
-                                                                                                flightNumber: upComingTripsItem.flightNumber,
-                                                                                                flightClass: upComingTripsItem.flightClass,
-                                                                                                departureAirport: upComingTripsItem.departureAirport,
-                                                                                                departureTimezone: upComingTripsItem.departureTimezone,
-                                                                                                departureTerminal: upComingTripsItem.departureTerminal,
-                                                                                                seat: upComingTripsItem.seat,
-                                                                                                gateNumber: upComingTripsItem.gateNumber,
-                                                                                                arrivalAirport: upComingTripsItem.arrivalAirport,
-                                                                                                arrivalTime: functions.convertTimeToDateTime(upComingTripsItem.arrivalTime),
-                                                                                                arrivalTimezone: upComingTripsItem.arrivalTimezone,
-                                                                                                arrivalTerminal: upComingTripsItem.arrivalTerminal,
-                                                                                                createdAt: functions.parseDateTime(upComingTripsItem.createdAt),
-                                                                                                updatedAt: functions.parseDateTime(upComingTripsItem.updatedAt),
-                                                                                                id: upComingTripsItem.id,
-                                                                                                departureTime: functions.convertTimeToDateTime(upComingTripsItem.departureTime),
-                                                                                                araivalDate: functions.parseDateTime(upComingTripsItem.araivalDate),
-                                                                                                arrivalAirportName: upComingTripsItem.arrivalAirportName,
-                                                                                                departureAirportName: upComingTripsItem.departureAirportName,
-                                                                                              ),
-                                                                                              ParamType.DataStruct,
-                                                                                            ),
-                                                                                          }.withoutNulls,
-                                                                                        );
-                                                                                      },
-                                                                                      child: Container(
-                                                                                        height: 63.0,
-                                                                                        decoration: BoxDecoration(
-                                                                                          color: FlutterFlowTheme.of(context).primary,
-                                                                                          borderRadius: BorderRadius.circular(15.0),
-                                                                                        ),
-                                                                                        child: Padding(
-                                                                                          padding: EdgeInsets.all(10.0),
-                                                                                          child: Row(
-                                                                                            mainAxisSize: MainAxisSize.max,
-                                                                                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                                                                            children: [
-                                                                                              Icon(
-                                                                                                FFIcons.kgroup3,
-                                                                                                color: FlutterFlowTheme.of(context).secondary,
-                                                                                                size: 24.0,
-                                                                                              ),
-                                                                                              Row(
-                                                                                                mainAxisSize: MainAxisSize.max,
-                                                                                                children: [
-                                                                                                  Padding(
-                                                                                                    padding: EdgeInsetsDirectional.fromSTEB(0.0, 0.0, 5.0, 0.0),
-                                                                                                    child: Text(
-                                                                                                      'View Details',
-                                                                                                      style: FlutterFlowTheme.of(context).bodyMedium.override(
-                                                                                                            fontFamily: FlutterFlowTheme.of(context).bodyMediumFamily,
-                                                                                                            color: Color(0xB3FFFFFF),
-                                                                                                            letterSpacing: 0.0,
-                                                                                                            useGoogleFonts: !FlutterFlowTheme.of(context).bodyMediumIsCustom,
+                                                                                                            onPressed: () {
+                                                                                                              print('IconButton pressed ...');
+                                                                                                            },
                                                                                                           ),
+                                                                                                        ),
+                                                                                                        Builder(
+                                                                                                          builder: (context) {
+                                                                                                            if (functions.isDepartureWithinMinutes(upComingTripsItem.departureAt, 240)) {
+                                                                                                              return Padding(
+                                                                                                                padding: EdgeInsetsDirectional.fromSTEB(10.0, 0.0, 0.0, 0.0),
+                                                                                                                child: Text(
+                                                                                                                  dateTimeFormat("Hm", functions.convertTimeToDateTime(upComingTripsItem.arrivalTime)),
+                                                                                                                  style: FlutterFlowTheme.of(context).bodyMedium.override(
+                                                                                                                        font: GoogleFonts.roboto(
+                                                                                                                          fontWeight: FontWeight.normal,
+                                                                                                                          fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
+                                                                                                                        ),
+                                                                                                                        color: FlutterFlowTheme.of(context).customColor1,
+                                                                                                                        fontSize: 18.0,
+                                                                                                                        letterSpacing: 0.0,
+                                                                                                                        fontWeight: FontWeight.normal,
+                                                                                                                        fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
+                                                                                                                      ),
+                                                                                                                ),
+                                                                                                              );
+                                                                                                            } else {
+                                                                                                              return Padding(
+                                                                                                                padding: EdgeInsetsDirectional.fromSTEB(10.0, 0.0, 0.0, 0.0),
+                                                                                                                child: Text(
+                                                                                                                  dateTimeFormat("Hm", functions.convertTimeToDateTime(upComingTripsItem.arrivalTime)),
+                                                                                                                  style: FlutterFlowTheme.of(context).bodyMedium.override(
+                                                                                                                        font: GoogleFonts.roboto(
+                                                                                                                          fontWeight: FontWeight.normal,
+                                                                                                                          fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
+                                                                                                                        ),
+                                                                                                                        color: Color(0xFF2D343F),
+                                                                                                                        fontSize: 18.0,
+                                                                                                                        letterSpacing: 0.0,
+                                                                                                                        fontWeight: FontWeight.normal,
+                                                                                                                        fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
+                                                                                                                      ),
+                                                                                                                ),
+                                                                                                              );
+                                                                                                            }
+                                                                                                          },
+                                                                                                        ),
+                                                                                                      ],
                                                                                                     ),
-                                                                                                  ),
-                                                                                                  Icon(
-                                                                                                    Icons.arrow_forward_ios,
-                                                                                                    color: FlutterFlowTheme.of(context).secondary,
-                                                                                                    size: 16.0,
-                                                                                                  ),
-                                                                                                ],
-                                                                                              ),
-                                                                                            ],
-                                                                                          ),
-                                                                                        ),
-                                                                                      ),
-                                                                                    ),
-                                                                                  ),
-                                                                                ],
-                                                                              ).addWalkthrough(
-                                                                                columnEoejvhev,
-                                                                                _model.addYourFirstTripController,
-                                                                              );
-                                                                            } else {
-                                                                              return Padding(
-                                                                                padding: EdgeInsets.all(14.0),
-                                                                                child: Container(
-                                                                                  decoration: BoxDecoration(
-                                                                                    color: FlutterFlowTheme.of(context).secondaryBackground,
-                                                                                    borderRadius: BorderRadius.circular(24.0),
-                                                                                  ),
-                                                                                  child: Column(
-                                                                                    mainAxisSize: MainAxisSize.max,
-                                                                                    children: [
-                                                                                      if (functions.isWithinThreeHours(upComingTripsItem.departureTime, 60, upComingTripsItem.departureDate) &&
-                                                                                          responsiveVisibility(
-                                                                                            context: context,
-                                                                                            tablet: false,
-                                                                                          ))
-                                                                                        Padding(
-                                                                                          padding: EdgeInsets.all(4.0),
-                                                                                          child: Column(
-                                                                                            mainAxisSize: MainAxisSize.min,
-                                                                                            children: [
-                                                                                              Row(
-                                                                                                mainAxisSize: MainAxisSize.max,
-                                                                                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                                                                                children: [
-                                                                                                  Align(
-                                                                                                    alignment: AlignmentDirectional(-1.0, -1.0),
-                                                                                                    child: ClipRRect(
-                                                                                                      borderRadius: BorderRadius.circular(8.0),
-                                                                                                      child: Image.asset(
-                                                                                                        'assets/images/Screw.png',
-                                                                                                        width: 20.0,
-                                                                                                        height: 20.0,
-                                                                                                        fit: BoxFit.cover,
-                                                                                                      ),
-                                                                                                    ),
-                                                                                                  ),
-                                                                                                  Align(
-                                                                                                    alignment: AlignmentDirectional(-1.0, -1.0),
-                                                                                                    child: ClipRRect(
-                                                                                                      borderRadius: BorderRadius.circular(8.0),
-                                                                                                      child: Image.asset(
-                                                                                                        'assets/images/Screw.png',
-                                                                                                        width: 20.0,
-                                                                                                        height: 20.0,
-                                                                                                        fit: BoxFit.cover,
-                                                                                                      ),
-                                                                                                    ),
-                                                                                                  ),
-                                                                                                ],
+                                                                                                  ],
+                                                                                                ),
                                                                                               ),
                                                                                               Padding(
-                                                                                                padding: EdgeInsetsDirectional.fromSTEB(10.0, 0.0, 0.0, 0.0),
+                                                                                                padding: EdgeInsetsDirectional.fromSTEB(0.0, 5.0, 0.0, 0.0),
                                                                                                 child: Row(
                                                                                                   mainAxisSize: MainAxisSize.max,
                                                                                                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                                                                                  crossAxisAlignment: CrossAxisAlignment.end,
                                                                                                   children: [
-                                                                                                    Align(
-                                                                                                      alignment: AlignmentDirectional(0.0, 1.0),
-                                                                                                      child: Text(
-                                                                                                        'Seat',
-                                                                                                        style: FlutterFlowTheme.of(context).bodyMedium.override(
-                                                                                                              font: GoogleFonts.roboto(
-                                                                                                                fontWeight: FlutterFlowTheme.of(context).bodyMedium.fontWeight,
-                                                                                                                fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
-                                                                                                              ),
-                                                                                                              color: Color(0xFF9C9C9C),
-                                                                                                              letterSpacing: 0.0,
-                                                                                                              fontWeight: FlutterFlowTheme.of(context).bodyMedium.fontWeight,
-                                                                                                              fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
-                                                                                                            ),
-                                                                                                      ),
-                                                                                                    ),
-                                                                                                    Padding(
-                                                                                                      padding: EdgeInsetsDirectional.fromSTEB(0.0, 10.0, 20.0, 0.0),
-                                                                                                      child: ClipRRect(
-                                                                                                        borderRadius: BorderRadius.circular(8.0),
-                                                                                                        child: SvgPicture.asset(
-                                                                                                          'assets/images/arrowOutward.svg',
-                                                                                                          width: 70.0,
-                                                                                                          height: 40.0,
-                                                                                                          fit: BoxFit.contain,
-                                                                                                        ),
-                                                                                                      ),
-                                                                                                    ),
-                                                                                                  ],
-                                                                                                ),
-                                                                                              ),
-                                                                                              Padding(
-                                                                                                padding: EdgeInsetsDirectional.fromSTEB(10.0, 0.0, 0.0, 5.0),
-                                                                                                child: Column(
-                                                                                                  mainAxisSize: MainAxisSize.max,
-                                                                                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                                                                                  children: [
-                                                                                                    Text(
-                                                                                                      upComingTripsItem.seat,
-                                                                                                      style: FlutterFlowTheme.of(context).bodyMedium.override(
-                                                                                                            font: GoogleFonts.roboto(
-                                                                                                              fontWeight: FontWeight.w600,
-                                                                                                              fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
-                                                                                                            ),
-                                                                                                            fontSize: 45.0,
-                                                                                                            letterSpacing: 0.0,
-                                                                                                            fontWeight: FontWeight.w600,
-                                                                                                            fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
-                                                                                                          ),
-                                                                                                    ),
-                                                                                                    Row(
-                                                                                                      mainAxisSize: MainAxisSize.max,
-                                                                                                      children: [
-                                                                                                        Text(
-                                                                                                          valueOrDefault<String>(
-                                                                                                            (String gateNumber) {
-                                                                                                              return 'Gate Number - ' + gateNumber;
-                                                                                                            }(upComingTripsItem.gateNumber),
-                                                                                                            'N/A',
-                                                                                                          ),
-                                                                                                          style: FlutterFlowTheme.of(context).bodyMedium.override(
-                                                                                                                font: GoogleFonts.roboto(
-                                                                                                                  fontWeight: FontWeight.w300,
+                                                                                                    Builder(
+                                                                                                      builder: (context) {
+                                                                                                        if (functions.isDepartureWithinMinutes(upComingTripsItem.departureAt, 240) == true) {
+                                                                                                          return Text(
+                                                                                                            upComingTripsItem.departureAirport,
+                                                                                                            style: FlutterFlowTheme.of(context).bodyMedium.override(
+                                                                                                                  font: GoogleFonts.radley(
+                                                                                                                    fontWeight: FontWeight.w600,
+                                                                                                                    fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
+                                                                                                                  ),
+                                                                                                                  color: FlutterFlowTheme.of(context).tertiary,
+                                                                                                                  fontSize: 26.0,
+                                                                                                                  letterSpacing: 0.0,
+                                                                                                                  fontWeight: FontWeight.w600,
                                                                                                                   fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
                                                                                                                 ),
-                                                                                                                color: Color(0xFF2D343F),
-                                                                                                                fontSize: 24.0,
-                                                                                                                letterSpacing: 0.0,
-                                                                                                                fontWeight: FontWeight.w300,
-                                                                                                                fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
+                                                                                                          );
+                                                                                                        } else {
+                                                                                                          return Text(
+                                                                                                            upComingTripsItem.departureAirport,
+                                                                                                            style: FlutterFlowTheme.of(context).bodyMedium.override(
+                                                                                                                  font: GoogleFonts.radley(
+                                                                                                                    fontWeight: FontWeight.w600,
+                                                                                                                    fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
+                                                                                                                  ),
+                                                                                                                  color: FlutterFlowTheme.of(context).customColor1,
+                                                                                                                  fontSize: 26.0,
+                                                                                                                  letterSpacing: 0.0,
+                                                                                                                  fontWeight: FontWeight.w600,
+                                                                                                                  fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
+                                                                                                                ),
+                                                                                                          );
+                                                                                                        }
+                                                                                                      },
+                                                                                                    ),
+                                                                                                    Column(
+                                                                                                      mainAxisSize: MainAxisSize.max,
+                                                                                                      children: [
+                                                                                                        Row(
+                                                                                                          mainAxisSize: MainAxisSize.max,
+                                                                                                          children: [
+                                                                                                            Padding(
+                                                                                                              padding: EdgeInsetsDirectional.fromSTEB(0.0, 0.0, 0.0, 2.0),
+                                                                                                              child: Text(
+                                                                                                                '-------',
+                                                                                                                style: FlutterFlowTheme.of(context).bodyMedium.override(
+                                                                                                                      fontFamily: FlutterFlowTheme.of(context).bodyMediumFamily,
+                                                                                                                      color: FlutterFlowTheme.of(context).alternate,
+                                                                                                                      letterSpacing: 0.0,
+                                                                                                                      useGoogleFonts: !FlutterFlowTheme.of(context).bodyMediumIsCustom,
+                                                                                                                    ),
                                                                                                               ),
+                                                                                                            ),
+                                                                                                            FaIcon(
+                                                                                                              FontAwesomeIcons.plane,
+                                                                                                              color: FlutterFlowTheme.of(context).primary,
+                                                                                                              size: 18.0,
+                                                                                                            ),
+                                                                                                            Padding(
+                                                                                                              padding: EdgeInsetsDirectional.fromSTEB(0.0, 0.0, 0.0, 2.0),
+                                                                                                              child: Text(
+                                                                                                                '-------',
+                                                                                                                style: FlutterFlowTheme.of(context).bodyMedium.override(
+                                                                                                                      fontFamily: FlutterFlowTheme.of(context).bodyMediumFamily,
+                                                                                                                      color: FlutterFlowTheme.of(context).alternate,
+                                                                                                                      letterSpacing: 0.0,
+                                                                                                                      useGoogleFonts: !FlutterFlowTheme.of(context).bodyMediumIsCustom,
+                                                                                                                    ),
+                                                                                                              ),
+                                                                                                            ),
+                                                                                                          ],
+                                                                                                        ),
+                                                                                                        Padding(
+                                                                                                          padding: EdgeInsetsDirectional.fromSTEB(0.0, 5.0, 0.0, 0.0),
+                                                                                                          child: Text(
+                                                                                                            upComingTripsItem.airline,
+                                                                                                            style: FlutterFlowTheme.of(context).bodyMedium.override(
+                                                                                                                  font: GoogleFonts.roboto(
+                                                                                                                    fontWeight: FontWeight.w500,
+                                                                                                                    fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
+                                                                                                                  ),
+                                                                                                                  color: Color(0xFF4C596C),
+                                                                                                                  fontSize: 12.0,
+                                                                                                                  letterSpacing: 0.0,
+                                                                                                                  fontWeight: FontWeight.w500,
+                                                                                                                  fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
+                                                                                                                ),
+                                                                                                          ),
                                                                                                         ),
                                                                                                       ],
                                                                                                     ),
+                                                                                                    Builder(
+                                                                                                      builder: (context) {
+                                                                                                        if (functions.isDepartureWithinMinutes(upComingTripsItem.departureAt, 240) == true) {
+                                                                                                          return Text(
+                                                                                                            upComingTripsItem.arrivalAirport,
+                                                                                                            style: FlutterFlowTheme.of(context).bodyMedium.override(
+                                                                                                                  font: GoogleFonts.radley(
+                                                                                                                    fontWeight: FontWeight.w600,
+                                                                                                                    fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
+                                                                                                                  ),
+                                                                                                                  color: FlutterFlowTheme.of(context).tertiary,
+                                                                                                                  fontSize: 26.0,
+                                                                                                                  letterSpacing: 0.0,
+                                                                                                                  fontWeight: FontWeight.w600,
+                                                                                                                  fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
+                                                                                                                ),
+                                                                                                          );
+                                                                                                        } else {
+                                                                                                          return Text(
+                                                                                                            upComingTripsItem.arrivalAirport,
+                                                                                                            style: FlutterFlowTheme.of(context).bodyMedium.override(
+                                                                                                                  font: GoogleFonts.radley(
+                                                                                                                    fontWeight: FontWeight.w600,
+                                                                                                                    fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
+                                                                                                                  ),
+                                                                                                                  color: FlutterFlowTheme.of(context).customColor1,
+                                                                                                                  fontSize: 26.0,
+                                                                                                                  letterSpacing: 0.0,
+                                                                                                                  fontWeight: FontWeight.w600,
+                                                                                                                  fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
+                                                                                                                ),
+                                                                                                          );
+                                                                                                        }
+                                                                                                      },
+                                                                                                    ),
                                                                                                   ],
                                                                                                 ),
                                                                                               ),
-                                                                                              Align(
-                                                                                                alignment: AlignmentDirectional(1.0, 0.0),
-                                                                                                child: Padding(
-                                                                                                  padding: EdgeInsetsDirectional.fromSTEB(0.0, 0.0, 15.0, 5.0),
-                                                                                                  child: InkWell(
-                                                                                                    splashColor: Colors.transparent,
-                                                                                                    focusColor: Colors.transparent,
-                                                                                                    hoverColor: Colors.transparent,
-                                                                                                    highlightColor: Colors.transparent,
-                                                                                                    onTap: () async {
-                                                                                                      context.pushNamed(
-                                                                                                        TripDetailsWidget.routeName,
-                                                                                                        queryParameters: {
-                                                                                                          'currentTrip': serializeParam(
-                                                                                                            TripStruct(
-                                                                                                              pnrNumber: upComingTripsItem.pnrNumber,
-                                                                                                              departureDate: functions.parseDateTime(upComingTripsItem.departureDate),
-                                                                                                              airline: upComingTripsItem.airline,
-                                                                                                              flightNumber: upComingTripsItem.flightNumber,
-                                                                                                              flightClass: upComingTripsItem.flightClass,
-                                                                                                              departureAirport: upComingTripsItem.departureAirport,
-                                                                                                              departureTimezone: upComingTripsItem.departureTimezone,
-                                                                                                              departureTerminal: upComingTripsItem.departureTerminal,
-                                                                                                              seat: upComingTripsItem.seat,
-                                                                                                              gateNumber: upComingTripsItem.gateNumber,
-                                                                                                              arrivalAirport: upComingTripsItem.arrivalAirport,
-                                                                                                              arrivalTime: functions.convertTimeToDateTime(upComingTripsItem.arrivalTime),
-                                                                                                              arrivalTimezone: upComingTripsItem.arrivalTimezone,
-                                                                                                              arrivalTerminal: upComingTripsItem.arrivalTerminal,
-                                                                                                              createdAt: functions.parseDateTime(upComingTripsItem.createdAt),
-                                                                                                              updatedAt: functions.parseDateTime(upComingTripsItem.updatedAt),
-                                                                                                              id: upComingTripsItem.id,
-                                                                                                              departureTime: functions.convertTimeToDateTime(upComingTripsItem.departureTime),
-                                                                                                              araivalDate: functions.parseDateTime(upComingTripsItem.araivalDate),
-                                                                                                              arrivalAirportName: upComingTripsItem.arrivalAirportName,
-                                                                                                              departureAirportName: upComingTripsItem.departureAirportName,
-                                                                                                            ),
-                                                                                                            ParamType.DataStruct,
-                                                                                                          ),
-                                                                                                        }.withoutNulls,
-                                                                                                      );
-                                                                                                    },
-                                                                                                    child: Text(
-                                                                                                      'View Details',
-                                                                                                      style: FlutterFlowTheme.of(context).bodyMedium.override(
-                                                                                                            font: GoogleFonts.roboto(
-                                                                                                              fontWeight: FontWeight.w600,
-                                                                                                              fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
-                                                                                                            ),
-                                                                                                            color: FlutterFlowTheme.of(context).primary,
-                                                                                                            letterSpacing: 0.0,
-                                                                                                            fontWeight: FontWeight.w600,
-                                                                                                            fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
-                                                                                                          ),
-                                                                                                    ),
-                                                                                                  ),
-                                                                                                ),
-                                                                                              ),
-                                                                                              Row(
-                                                                                                mainAxisSize: MainAxisSize.max,
-                                                                                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                                                                                children: [
-                                                                                                  Align(
-                                                                                                    alignment: AlignmentDirectional(-1.0, -1.0),
-                                                                                                    child: ClipRRect(
-                                                                                                      borderRadius: BorderRadius.circular(8.0),
-                                                                                                      child: Image.asset(
-                                                                                                        'assets/images/Screw.png',
-                                                                                                        width: 20.0,
-                                                                                                        height: 20.0,
-                                                                                                        fit: BoxFit.cover,
-                                                                                                      ),
-                                                                                                    ),
-                                                                                                  ),
-                                                                                                  Align(
-                                                                                                    alignment: AlignmentDirectional(-1.0, -1.0),
-                                                                                                    child: ClipRRect(
-                                                                                                      borderRadius: BorderRadius.circular(8.0),
-                                                                                                      child: Image.asset(
-                                                                                                        'assets/images/Screw.png',
-                                                                                                        width: 20.0,
-                                                                                                        height: 20.0,
-                                                                                                        fit: BoxFit.cover,
-                                                                                                      ),
-                                                                                                    ),
-                                                                                                  ),
-                                                                                                ],
-                                                                                              ),
-                                                                                            ],
-                                                                                          ),
-                                                                                        ),
-                                                                                      if (!functions.isWithinThreeHours(upComingTripsItem.departureTime, 60, upComingTripsItem.departureDate) &&
-                                                                                          responsiveVisibility(
-                                                                                            context: context,
-                                                                                            tablet: false,
-                                                                                          ))
-                                                                                        Padding(
-                                                                                          padding: EdgeInsets.all(4.0),
-                                                                                          child: Column(
-                                                                                            mainAxisSize: MainAxisSize.min,
-                                                                                            children: [
-                                                                                              Row(
-                                                                                                mainAxisSize: MainAxisSize.max,
-                                                                                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                                                                                children: [
-                                                                                                  Align(
-                                                                                                    alignment: AlignmentDirectional(-1.0, -1.0),
-                                                                                                    child: ClipRRect(
-                                                                                                      borderRadius: BorderRadius.circular(8.0),
-                                                                                                      child: Image.asset(
-                                                                                                        'assets/images/Screw.png',
-                                                                                                        width: 20.0,
-                                                                                                        height: 20.0,
-                                                                                                        fit: BoxFit.cover,
-                                                                                                      ),
-                                                                                                    ),
-                                                                                                  ),
-                                                                                                  Align(
-                                                                                                    alignment: AlignmentDirectional(-1.0, -1.0),
-                                                                                                    child: ClipRRect(
-                                                                                                      borderRadius: BorderRadius.circular(8.0),
-                                                                                                      child: Image.asset(
-                                                                                                        'assets/images/Screw.png',
-                                                                                                        width: 20.0,
-                                                                                                        height: 20.0,
-                                                                                                        fit: BoxFit.cover,
-                                                                                                      ),
-                                                                                                    ),
-                                                                                                  ),
-                                                                                                ],
-                                                                                              ),
-                                                                                              Align(
-                                                                                                alignment: AlignmentDirectional(1.0, 0.0),
-                                                                                                child: Padding(
-                                                                                                  padding: EdgeInsetsDirectional.fromSTEB(0.0, 10.0, 20.0, 0.0),
-                                                                                                  child: ClipRRect(
-                                                                                                    borderRadius: BorderRadius.circular(8.0),
-                                                                                                    child: SvgPicture.asset(
-                                                                                                      'assets/images/arrowOutward.svg',
-                                                                                                      width: 50.0,
-                                                                                                      height: 40.0,
-                                                                                                      fit: BoxFit.contain,
-                                                                                                    ),
-                                                                                                  ),
-                                                                                                ),
-                                                                                              ),
-                                                                                              Padding(
-                                                                                                padding: EdgeInsetsDirectional.fromSTEB(10.0, 0.0, 0.0, 5.0),
-                                                                                                child: Column(
-                                                                                                  mainAxisSize: MainAxisSize.max,
-                                                                                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                                                                                  children: [
-                                                                                                    Text(
-                                                                                                      ' Gate ',
-                                                                                                      style: FlutterFlowTheme.of(context).bodyMedium.override(
-                                                                                                            font: GoogleFonts.roboto(
-                                                                                                              fontWeight: FlutterFlowTheme.of(context).bodyMedium.fontWeight,
-                                                                                                              fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
-                                                                                                            ),
-                                                                                                            color: FlutterFlowTheme.of(context).secondaryText,
-                                                                                                            letterSpacing: 0.0,
-                                                                                                            fontWeight: FlutterFlowTheme.of(context).bodyMedium.fontWeight,
-                                                                                                            fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
-                                                                                                          ),
-                                                                                                    ),
-                                                                                                    Text(
-                                                                                                      upComingTripsItem.gateNumber,
-                                                                                                      style: FlutterFlowTheme.of(context).bodyMedium.override(
-                                                                                                            font: GoogleFonts.roboto(
-                                                                                                              fontWeight: FontWeight.w900,
-                                                                                                              fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
-                                                                                                            ),
-                                                                                                            fontSize: 45.0,
-                                                                                                            letterSpacing: 0.0,
-                                                                                                            fontWeight: FontWeight.w900,
-                                                                                                            fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
-                                                                                                          ),
-                                                                                                    ),
-                                                                                                    Row(
+                                                                                              Builder(
+                                                                                                builder: (context) {
+                                                                                                  if (functions.isDepartureWithinMinutes(upComingTripsItem.departureAt, 240) == true) {
+                                                                                                    return Row(
                                                                                                       mainAxisSize: MainAxisSize.max,
+                                                                                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                                                                                       children: [
                                                                                                         Text(
                                                                                                           (String var1) {
-                                                                                                            return var1 + ' ';
-                                                                                                          }(upComingTripsItem.departureAirport),
-                                                                                                          style: FlutterFlowTheme.of(context).bodyMedium.override(
-                                                                                                                font: GoogleFonts.roboto(
-                                                                                                                  fontWeight: FontWeight.normal,
-                                                                                                                  fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
-                                                                                                                ),
-                                                                                                                fontSize: 16.0,
-                                                                                                                letterSpacing: 0.0,
-                                                                                                                fontWeight: FontWeight.normal,
-                                                                                                                fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
-                                                                                                              ),
-                                                                                                        ),
-                                                                                                        Text(
-                                                                                                          upComingTripsItem.departureTerminal,
+                                                                                                            return 'Terminal ' + var1;
+                                                                                                          }(upComingTripsItem.departureTerminal),
                                                                                                           style: FlutterFlowTheme.of(context).bodyMedium.override(
                                                                                                                 font: GoogleFonts.roboto(
                                                                                                                   fontWeight: FlutterFlowTheme.of(context).bodyMedium.fontWeight,
                                                                                                                   fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
                                                                                                                 ),
-                                                                                                                fontSize: 18.0,
+                                                                                                                color: FlutterFlowTheme.of(context).tertiary,
+                                                                                                                fontSize: 12.0,
+                                                                                                                letterSpacing: 0.0,
+                                                                                                                fontWeight: FlutterFlowTheme.of(context).bodyMedium.fontWeight,
+                                                                                                                fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
+                                                                                                              ),
+                                                                                                        ),
+                                                                                                        Text(
+                                                                                                          (String var1) {
+                                                                                                            return 'Terminal ' + var1;
+                                                                                                          }(upComingTripsItem.arrivalTerminal),
+                                                                                                          style: FlutterFlowTheme.of(context).bodyMedium.override(
+                                                                                                                font: GoogleFonts.roboto(
+                                                                                                                  fontWeight: FlutterFlowTheme.of(context).bodyMedium.fontWeight,
+                                                                                                                  fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
+                                                                                                                ),
+                                                                                                                color: FlutterFlowTheme.of(context).tertiary,
+                                                                                                                fontSize: 12.0,
                                                                                                                 letterSpacing: 0.0,
                                                                                                                 fontWeight: FlutterFlowTheme.of(context).bodyMedium.fontWeight,
                                                                                                                 fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
                                                                                                               ),
                                                                                                         ),
                                                                                                       ],
-                                                                                                    ),
-                                                                                                  ],
-                                                                                                ),
-                                                                                              ),
-                                                                                              Align(
-                                                                                                alignment: AlignmentDirectional(1.0, 0.0),
-                                                                                                child: Padding(
-                                                                                                  padding: EdgeInsetsDirectional.fromSTEB(0.0, 0.0, 15.0, 5.0),
-                                                                                                  child: InkWell(
-                                                                                                    splashColor: Colors.transparent,
-                                                                                                    focusColor: Colors.transparent,
-                                                                                                    hoverColor: Colors.transparent,
-                                                                                                    highlightColor: Colors.transparent,
-                                                                                                    onTap: () async {
-                                                                                                      context.pushNamed(
-                                                                                                        TripDetailsWidget.routeName,
-                                                                                                        queryParameters: {
-                                                                                                          'currentTrip': serializeParam(
-                                                                                                            TripStruct(
-                                                                                                              pnrNumber: upComingTripsItem.pnrNumber,
-                                                                                                              departureDate: functions.parseDateTime(upComingTripsItem.departureDate),
-                                                                                                              airline: upComingTripsItem.airline,
-                                                                                                              flightNumber: upComingTripsItem.flightNumber,
-                                                                                                              flightClass: upComingTripsItem.flightClass,
-                                                                                                              departureAirport: upComingTripsItem.departureAirport,
-                                                                                                              departureTimezone: upComingTripsItem.departureTimezone,
-                                                                                                              departureTerminal: upComingTripsItem.departureTerminal,
-                                                                                                              seat: upComingTripsItem.seat,
-                                                                                                              gateNumber: upComingTripsItem.gateNumber,
-                                                                                                              arrivalAirport: upComingTripsItem.arrivalAirport,
-                                                                                                              arrivalTime: functions.convertTimeToDateTime(upComingTripsItem.arrivalTime),
-                                                                                                              arrivalTimezone: upComingTripsItem.arrivalTimezone,
-                                                                                                              arrivalTerminal: upComingTripsItem.arrivalTerminal,
-                                                                                                              createdAt: functions.parseDateTime(upComingTripsItem.createdAt),
-                                                                                                              updatedAt: functions.parseDateTime(upComingTripsItem.updatedAt),
-                                                                                                              id: upComingTripsItem.id,
-                                                                                                              departureTime: functions.convertTimeToDateTime(upComingTripsItem.departureTime),
-                                                                                                              araivalDate: functions.parseDateTime(upComingTripsItem.araivalDate),
-                                                                                                              arrivalAirportName: upComingTripsItem.arrivalAirportName,
-                                                                                                              departureAirportName: upComingTripsItem.departureAirportName,
-                                                                                                            ),
-                                                                                                            ParamType.DataStruct,
-                                                                                                          ),
-                                                                                                        }.withoutNulls,
-                                                                                                      );
-                                                                                                    },
-                                                                                                    child: Text(
-                                                                                                      'View Details',
-                                                                                                      style: FlutterFlowTheme.of(context).bodyMedium.override(
-                                                                                                            fontFamily: FlutterFlowTheme.of(context).bodyMediumFamily,
-                                                                                                            color: FlutterFlowTheme.of(context).primary,
-                                                                                                            letterSpacing: 0.0,
-                                                                                                            useGoogleFonts: !FlutterFlowTheme.of(context).bodyMediumIsCustom,
-                                                                                                          ),
-                                                                                                    ),
-                                                                                                  ),
-                                                                                                ),
-                                                                                              ),
-                                                                                              Row(
-                                                                                                mainAxisSize: MainAxisSize.max,
-                                                                                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                                                                                children: [
-                                                                                                  Align(
-                                                                                                    alignment: AlignmentDirectional(-1.0, -1.0),
-                                                                                                    child: ClipRRect(
-                                                                                                      borderRadius: BorderRadius.circular(8.0),
-                                                                                                      child: Image.asset(
-                                                                                                        'assets/images/Screw.png',
-                                                                                                        width: 20.0,
-                                                                                                        height: 20.0,
-                                                                                                        fit: BoxFit.cover,
-                                                                                                      ),
-                                                                                                    ),
-                                                                                                  ),
-                                                                                                  Align(
-                                                                                                    alignment: AlignmentDirectional(-1.0, -1.0),
-                                                                                                    child: ClipRRect(
-                                                                                                      borderRadius: BorderRadius.circular(8.0),
-                                                                                                      child: Image.asset(
-                                                                                                        'assets/images/Screw.png',
-                                                                                                        width: 20.0,
-                                                                                                        height: 20.0,
-                                                                                                        fit: BoxFit.cover,
-                                                                                                      ),
-                                                                                                    ),
-                                                                                                  ),
-                                                                                                ],
+                                                                                                    );
+                                                                                                  } else {
+                                                                                                    return Row(
+                                                                                                      mainAxisSize: MainAxisSize.max,
+                                                                                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                                                                                      children: [
+                                                                                                        Text(
+                                                                                                          (String var1) {
+                                                                                                            return 'Terminal ' + var1;
+                                                                                                          }(upComingTripsItem.departureTerminal),
+                                                                                                          style: FlutterFlowTheme.of(context).bodyMedium.override(
+                                                                                                                font: GoogleFonts.roboto(
+                                                                                                                  fontWeight: FlutterFlowTheme.of(context).bodyMedium.fontWeight,
+                                                                                                                  fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
+                                                                                                                ),
+                                                                                                                color: FlutterFlowTheme.of(context).customColor1,
+                                                                                                                fontSize: 12.0,
+                                                                                                                letterSpacing: 0.0,
+                                                                                                                fontWeight: FlutterFlowTheme.of(context).bodyMedium.fontWeight,
+                                                                                                                fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
+                                                                                                              ),
+                                                                                                        ),
+                                                                                                        Text(
+                                                                                                          (String var1) {
+                                                                                                            return 'Terminal ' + var1;
+                                                                                                          }(upComingTripsItem.arrivalTerminal),
+                                                                                                          style: FlutterFlowTheme.of(context).bodyMedium.override(
+                                                                                                                font: GoogleFonts.roboto(
+                                                                                                                  fontWeight: FlutterFlowTheme.of(context).bodyMedium.fontWeight,
+                                                                                                                  fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
+                                                                                                                ),
+                                                                                                                color: FlutterFlowTheme.of(context).customColor1,
+                                                                                                                fontSize: 12.0,
+                                                                                                                letterSpacing: 0.0,
+                                                                                                                fontWeight: FlutterFlowTheme.of(context).bodyMedium.fontWeight,
+                                                                                                                fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
+                                                                                                              ),
+                                                                                                        ),
+                                                                                                      ],
+                                                                                                    );
+                                                                                                  }
+                                                                                                },
                                                                                               ),
                                                                                             ],
                                                                                           ),
                                                                                         ),
-                                                                                      if (responsiveVisibility(
-                                                                                        context: context,
-                                                                                        phone: false,
-                                                                                        tablet: false,
-                                                                                        tabletLandscape: false,
-                                                                                        desktop: false,
-                                                                                      ))
-                                                                                        Builder(
-                                                                                          builder: (context) {
-                                                                                            if (functions.isWithinThreeHours(upComingTripsItem.departureTime, 30, upComingTripsItem.departureDate)) {
-                                                                                              return Padding(
-                                                                                                padding: EdgeInsets.all(4.0),
-                                                                                                child: Column(
-                                                                                                  mainAxisSize: MainAxisSize.min,
+                                                                                      ),
+                                                                                    ),
+                                                                                    Padding(
+                                                                                      padding: EdgeInsetsDirectional.fromSTEB(10.0, 0.0, 10.0, 10.0),
+                                                                                      child: InkWell(
+                                                                                        splashColor: Colors.transparent,
+                                                                                        focusColor: Colors.transparent,
+                                                                                        hoverColor: Colors.transparent,
+                                                                                        highlightColor: Colors.transparent,
+                                                                                        onTap: () async {
+                                                                                          context.pushNamed(
+                                                                                            TripDetailsWidget.routeName,
+                                                                                            queryParameters: {
+                                                                                              'currentTrip': serializeParam(
+                                                                                                TripStruct(
+                                                                                                  pnrNumber: upComingTripsItem.pnrNumber,
+                                                                                                  departureDate: functions.parseDateTime(upComingTripsItem.departureDate),
+                                                                                                  airline: upComingTripsItem.airline,
+                                                                                                  flightNumber: upComingTripsItem.flightNumber,
+                                                                                                  flightClass: upComingTripsItem.flightClass,
+                                                                                                  departureAirport: upComingTripsItem.departureAirport,
+                                                                                                  departureTimezone: upComingTripsItem.departureTimezone,
+                                                                                                  departureTerminal: upComingTripsItem.departureTerminal,
+                                                                                                  seat: upComingTripsItem.seat,
+                                                                                                  gateNumber: upComingTripsItem.gateNumber,
+                                                                                                  arrivalAirport: upComingTripsItem.arrivalAirport,
+                                                                                                  arrivalTime: functions.convertTimeToDateTime(upComingTripsItem.arrivalTime),
+                                                                                                  arrivalTimezone: upComingTripsItem.arrivalTimezone,
+                                                                                                  arrivalTerminal: upComingTripsItem.arrivalTerminal,
+                                                                                                  createdAt: functions.parseDateTime(upComingTripsItem.createdAt),
+                                                                                                  updatedAt: functions.parseDateTime(upComingTripsItem.updatedAt),
+                                                                                                  id: upComingTripsItem.id,
+                                                                                                  departureTime: functions.convertTimeToDateTime(upComingTripsItem.departureTime),
+                                                                                                  araivalDate: functions.parseDateTime(upComingTripsItem.araivalDate),
+                                                                                                  arrivalAirportName: upComingTripsItem.arrivalAirportName,
+                                                                                                  departureAirportName: upComingTripsItem.departureAirportName,
+                                                                                                ),
+                                                                                                ParamType.DataStruct,
+                                                                                              ),
+                                                                                            }.withoutNulls,
+                                                                                          );
+                                                                                        },
+                                                                                        child: Container(
+                                                                                          height: 63.0,
+                                                                                          decoration: BoxDecoration(
+                                                                                            color: FlutterFlowTheme.of(context).primary,
+                                                                                            borderRadius: BorderRadius.circular(15.0),
+                                                                                          ),
+                                                                                          child: Padding(
+                                                                                            padding: EdgeInsets.all(10.0),
+                                                                                            child: Row(
+                                                                                              mainAxisSize: MainAxisSize.max,
+                                                                                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                                                                              children: [
+                                                                                                Icon(
+                                                                                                  FFIcons.kgroup3,
+                                                                                                  color: FlutterFlowTheme.of(context).secondary,
+                                                                                                  size: 24.0,
+                                                                                                ),
+                                                                                                Row(
+                                                                                                  mainAxisSize: MainAxisSize.max,
                                                                                                   children: [
-                                                                                                    Row(
-                                                                                                      mainAxisSize: MainAxisSize.max,
-                                                                                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                                                                                      children: [
-                                                                                                        Align(
-                                                                                                          alignment: AlignmentDirectional(-1.0, -1.0),
-                                                                                                          child: ClipRRect(
-                                                                                                            borderRadius: BorderRadius.circular(8.0),
-                                                                                                            child: Image.asset(
-                                                                                                              'assets/images/Screw.png',
-                                                                                                              width: 20.0,
-                                                                                                              height: 20.0,
-                                                                                                              fit: BoxFit.cover,
-                                                                                                            ),
-                                                                                                          ),
-                                                                                                        ),
-                                                                                                        Align(
-                                                                                                          alignment: AlignmentDirectional(-1.0, -1.0),
-                                                                                                          child: ClipRRect(
-                                                                                                            borderRadius: BorderRadius.circular(8.0),
-                                                                                                            child: Image.asset(
-                                                                                                              'assets/images/Screw.png',
-                                                                                                              width: 20.0,
-                                                                                                              height: 20.0,
-                                                                                                              fit: BoxFit.cover,
-                                                                                                            ),
-                                                                                                          ),
-                                                                                                        ),
-                                                                                                      ],
-                                                                                                    ),
                                                                                                     Padding(
-                                                                                                      padding: EdgeInsetsDirectional.fromSTEB(10.0, 0.0, 0.0, 0.0),
-                                                                                                      child: Row(
-                                                                                                        mainAxisSize: MainAxisSize.max,
-                                                                                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                                                                                        crossAxisAlignment: CrossAxisAlignment.end,
-                                                                                                        children: [
-                                                                                                          Align(
-                                                                                                            alignment: AlignmentDirectional(0.0, 1.0),
-                                                                                                            child: Text(
-                                                                                                              'Seat',
-                                                                                                              style: FlutterFlowTheme.of(context).bodyMedium.override(
-                                                                                                                    font: GoogleFonts.roboto(
-                                                                                                                      fontWeight: FlutterFlowTheme.of(context).bodyMedium.fontWeight,
-                                                                                                                      fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
-                                                                                                                    ),
-                                                                                                                    color: Color(0xFF9C9C9C),
-                                                                                                                    letterSpacing: 0.0,
-                                                                                                                    fontWeight: FlutterFlowTheme.of(context).bodyMedium.fontWeight,
-                                                                                                                    fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
-                                                                                                                  ),
+                                                                                                      padding: EdgeInsetsDirectional.fromSTEB(0.0, 0.0, 5.0, 0.0),
+                                                                                                      child: Text(
+                                                                                                        'View Details',
+                                                                                                        style: FlutterFlowTheme.of(context).bodyMedium.override(
+                                                                                                              fontFamily: FlutterFlowTheme.of(context).bodyMediumFamily,
+                                                                                                              color: Color(0xB3FFFFFF),
+                                                                                                              letterSpacing: 0.0,
+                                                                                                              useGoogleFonts: !FlutterFlowTheme.of(context).bodyMediumIsCustom,
                                                                                                             ),
-                                                                                                          ),
-                                                                                                          Padding(
-                                                                                                            padding: EdgeInsetsDirectional.fromSTEB(0.0, 10.0, 20.0, 0.0),
-                                                                                                            child: ClipRRect(
-                                                                                                              borderRadius: BorderRadius.circular(8.0),
-                                                                                                              child: SvgPicture.asset(
-                                                                                                                'assets/images/arrowOutward.svg',
-                                                                                                                width: 70.0,
-                                                                                                                height: 40.0,
-                                                                                                                fit: BoxFit.contain,
-                                                                                                              ),
-                                                                                                            ),
-                                                                                                          ),
-                                                                                                        ],
                                                                                                       ),
                                                                                                     ),
-                                                                                                    Padding(
-                                                                                                      padding: EdgeInsetsDirectional.fromSTEB(10.0, 0.0, 0.0, 5.0),
-                                                                                                      child: Column(
-                                                                                                        mainAxisSize: MainAxisSize.max,
-                                                                                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                                                                                        children: [
-                                                                                                          Text(
-                                                                                                            upComingTripsItem.seat,
-                                                                                                            style: FlutterFlowTheme.of(context).bodyMedium.override(
-                                                                                                                  font: GoogleFonts.roboto(
-                                                                                                                    fontWeight: FontWeight.w600,
-                                                                                                                    fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
-                                                                                                                  ),
-                                                                                                                  fontSize: 45.0,
-                                                                                                                  letterSpacing: 0.0,
-                                                                                                                  fontWeight: FontWeight.w600,
-                                                                                                                  fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
-                                                                                                                ),
-                                                                                                          ),
-                                                                                                          Row(
-                                                                                                            mainAxisSize: MainAxisSize.max,
-                                                                                                            children: [
-                                                                                                              Text(
-                                                                                                                valueOrDefault<String>(
-                                                                                                                  (String gateNumber) {
-                                                                                                                    return 'Gate Number - ' + gateNumber;
-                                                                                                                  }(upComingTripsItem.gateNumber),
-                                                                                                                  'N/A',
-                                                                                                                ),
-                                                                                                                style: FlutterFlowTheme.of(context).bodyMedium.override(
-                                                                                                                      font: GoogleFonts.roboto(
-                                                                                                                        fontWeight: FontWeight.w300,
-                                                                                                                        fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
-                                                                                                                      ),
-                                                                                                                      color: Color(0xFF2D343F),
-                                                                                                                      fontSize: 24.0,
-                                                                                                                      letterSpacing: 0.0,
-                                                                                                                      fontWeight: FontWeight.w300,
-                                                                                                                      fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
-                                                                                                                    ),
-                                                                                                              ),
-                                                                                                            ],
-                                                                                                          ),
-                                                                                                        ],
-                                                                                                      ),
-                                                                                                    ),
-                                                                                                    Align(
-                                                                                                      alignment: AlignmentDirectional(1.0, 0.0),
-                                                                                                      child: Padding(
-                                                                                                        padding: EdgeInsetsDirectional.fromSTEB(0.0, 0.0, 15.0, 5.0),
-                                                                                                        child: InkWell(
-                                                                                                          splashColor: Colors.transparent,
-                                                                                                          focusColor: Colors.transparent,
-                                                                                                          hoverColor: Colors.transparent,
-                                                                                                          highlightColor: Colors.transparent,
-                                                                                                          onTap: () async {
-                                                                                                            context.pushNamed(
-                                                                                                              TripDetailsWidget.routeName,
-                                                                                                              queryParameters: {
-                                                                                                                'currentTrip': serializeParam(
-                                                                                                                  TripStruct(
-                                                                                                                    pnrNumber: upComingTripsItem.pnrNumber,
-                                                                                                                    departureDate: functions.parseDateTime(upComingTripsItem.departureDate),
-                                                                                                                    airline: upComingTripsItem.airline,
-                                                                                                                    flightNumber: upComingTripsItem.flightNumber,
-                                                                                                                    flightClass: upComingTripsItem.flightClass,
-                                                                                                                    departureAirport: upComingTripsItem.departureAirport,
-                                                                                                                    departureTimezone: upComingTripsItem.departureTimezone,
-                                                                                                                    departureTerminal: upComingTripsItem.departureTerminal,
-                                                                                                                    seat: upComingTripsItem.seat,
-                                                                                                                    gateNumber: upComingTripsItem.gateNumber,
-                                                                                                                    arrivalAirport: upComingTripsItem.arrivalAirport,
-                                                                                                                    arrivalTime: functions.convertTimeToDateTime(upComingTripsItem.arrivalTime),
-                                                                                                                    arrivalTimezone: upComingTripsItem.arrivalTimezone,
-                                                                                                                    arrivalTerminal: upComingTripsItem.arrivalTerminal,
-                                                                                                                    createdAt: functions.parseDateTime(upComingTripsItem.createdAt),
-                                                                                                                    updatedAt: functions.parseDateTime(upComingTripsItem.updatedAt),
-                                                                                                                    id: upComingTripsItem.id,
-                                                                                                                    departureTime: functions.convertTimeToDateTime(upComingTripsItem.departureTime),
-                                                                                                                    araivalDate: functions.parseDateTime(upComingTripsItem.araivalDate),
-                                                                                                                    arrivalAirportName: upComingTripsItem.arrivalAirportName,
-                                                                                                                    departureAirportName: upComingTripsItem.departureAirportName,
-                                                                                                                  ),
-                                                                                                                  ParamType.DataStruct,
-                                                                                                                ),
-                                                                                                              }.withoutNulls,
-                                                                                                            );
-                                                                                                          },
-                                                                                                          child: Text(
-                                                                                                            'View Details',
-                                                                                                            style: FlutterFlowTheme.of(context).bodyMedium.override(
-                                                                                                                  font: GoogleFonts.roboto(
-                                                                                                                    fontWeight: FontWeight.w600,
-                                                                                                                    fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
-                                                                                                                  ),
-                                                                                                                  color: FlutterFlowTheme.of(context).primary,
-                                                                                                                  letterSpacing: 0.0,
-                                                                                                                  fontWeight: FontWeight.w600,
-                                                                                                                  fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
-                                                                                                                ),
-                                                                                                          ),
-                                                                                                        ),
-                                                                                                      ),
-                                                                                                    ),
-                                                                                                    Row(
-                                                                                                      mainAxisSize: MainAxisSize.max,
-                                                                                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                                                                                      children: [
-                                                                                                        Align(
-                                                                                                          alignment: AlignmentDirectional(-1.0, -1.0),
-                                                                                                          child: ClipRRect(
-                                                                                                            borderRadius: BorderRadius.circular(8.0),
-                                                                                                            child: Image.asset(
-                                                                                                              'assets/images/Screw.png',
-                                                                                                              width: 20.0,
-                                                                                                              height: 20.0,
-                                                                                                              fit: BoxFit.cover,
-                                                                                                            ),
-                                                                                                          ),
-                                                                                                        ),
-                                                                                                        Align(
-                                                                                                          alignment: AlignmentDirectional(-1.0, -1.0),
-                                                                                                          child: ClipRRect(
-                                                                                                            borderRadius: BorderRadius.circular(8.0),
-                                                                                                            child: Image.asset(
-                                                                                                              'assets/images/Screw.png',
-                                                                                                              width: 20.0,
-                                                                                                              height: 20.0,
-                                                                                                              fit: BoxFit.cover,
-                                                                                                            ),
-                                                                                                          ),
-                                                                                                        ),
-                                                                                                      ],
+                                                                                                    Icon(
+                                                                                                      Icons.arrow_forward_ios,
+                                                                                                      color: FlutterFlowTheme.of(context).secondary,
+                                                                                                      size: 16.0,
                                                                                                     ),
                                                                                                   ],
                                                                                                 ),
-                                                                                              );
-                                                                                            } else {
-                                                                                              return Padding(
-                                                                                                padding: EdgeInsets.all(4.0),
-                                                                                                child: Column(
-                                                                                                  mainAxisSize: MainAxisSize.min,
+                                                                                              ],
+                                                                                            ),
+                                                                                          ),
+                                                                                        ),
+                                                                                      ),
+                                                                                    ),
+                                                                                  ],
+                                                                                ).addWalkthrough(
+                                                                                  columnEoejvhev,
+                                                                                  _model.addYourFirstTripController,
+                                                                                );
+                                                                              } else {
+                                                                                return Padding(
+                                                                                  padding: EdgeInsets.all(14.0),
+                                                                                  child: Container(
+                                                                                    decoration: BoxDecoration(
+                                                                                      color: FlutterFlowTheme.of(context).secondaryBackground,
+                                                                                      borderRadius: BorderRadius.circular(24.0),
+                                                                                    ),
+                                                                                    child: Column(
+                                                                                      mainAxisSize: MainAxisSize.max,
+                                                                                      children: [
+                                                                                        if (responsiveVisibility(
+                                                                                          context: context,
+                                                                                          tablet: false,
+                                                                                        ))
+                                                                                          Padding(
+                                                                                            padding: EdgeInsets.all(4.0),
+                                                                                            child: Column(
+                                                                                              mainAxisSize: MainAxisSize.min,
+                                                                                              children: [
+                                                                                                Row(
+                                                                                                  mainAxisSize: MainAxisSize.max,
+                                                                                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                                                                                   children: [
-                                                                                                    Row(
-                                                                                                      mainAxisSize: MainAxisSize.max,
-                                                                                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                                                                                      children: [
-                                                                                                        Align(
-                                                                                                          alignment: AlignmentDirectional(-1.0, -1.0),
-                                                                                                          child: ClipRRect(
-                                                                                                            borderRadius: BorderRadius.circular(8.0),
-                                                                                                            child: Image.asset(
-                                                                                                              'assets/images/Screw.png',
-                                                                                                              width: 20.0,
-                                                                                                              height: 20.0,
-                                                                                                              fit: BoxFit.cover,
-                                                                                                            ),
-                                                                                                          ),
-                                                                                                        ),
-                                                                                                        Align(
-                                                                                                          alignment: AlignmentDirectional(-1.0, -1.0),
-                                                                                                          child: ClipRRect(
-                                                                                                            borderRadius: BorderRadius.circular(8.0),
-                                                                                                            child: Image.asset(
-                                                                                                              'assets/images/Screw.png',
-                                                                                                              width: 20.0,
-                                                                                                              height: 20.0,
-                                                                                                              fit: BoxFit.cover,
-                                                                                                            ),
-                                                                                                          ),
-                                                                                                        ),
-                                                                                                      ],
-                                                                                                    ),
                                                                                                     Align(
-                                                                                                      alignment: AlignmentDirectional(1.0, 0.0),
-                                                                                                      child: Padding(
-                                                                                                        padding: EdgeInsetsDirectional.fromSTEB(0.0, 10.0, 20.0, 0.0),
-                                                                                                        child: ClipRRect(
-                                                                                                          borderRadius: BorderRadius.circular(8.0),
-                                                                                                          child: SvgPicture.asset(
-                                                                                                            'assets/images/arrowOutward.svg',
-                                                                                                            width: 50.0,
-                                                                                                            height: 40.0,
-                                                                                                            fit: BoxFit.contain,
-                                                                                                          ),
+                                                                                                      alignment: AlignmentDirectional(-1.0, -1.0),
+                                                                                                      child: ClipRRect(
+                                                                                                        borderRadius: BorderRadius.circular(8.0),
+                                                                                                        child: Image.asset(
+                                                                                                          'assets/images/Screw.png',
+                                                                                                          width: 20.0,
+                                                                                                          height: 20.0,
+                                                                                                          fit: BoxFit.cover,
                                                                                                         ),
                                                                                                       ),
                                                                                                     ),
-                                                                                                    Padding(
-                                                                                                      padding: EdgeInsetsDirectional.fromSTEB(10.0, 0.0, 0.0, 5.0),
-                                                                                                      child: Column(
-                                                                                                        mainAxisSize: MainAxisSize.max,
-                                                                                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                                                                                        children: [
-                                                                                                          Text(
-                                                                                                            ' Gate ',
-                                                                                                            style: FlutterFlowTheme.of(context).bodyMedium.override(
-                                                                                                                  font: GoogleFonts.roboto(
-                                                                                                                    fontWeight: FlutterFlowTheme.of(context).bodyMedium.fontWeight,
-                                                                                                                    fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
-                                                                                                                  ),
-                                                                                                                  color: FlutterFlowTheme.of(context).secondaryText,
-                                                                                                                  letterSpacing: 0.0,
-                                                                                                                  fontWeight: FlutterFlowTheme.of(context).bodyMedium.fontWeight,
-                                                                                                                  fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
-                                                                                                                ),
-                                                                                                          ),
-                                                                                                          Text(
-                                                                                                            upComingTripsItem.gateNumber,
-                                                                                                            style: FlutterFlowTheme.of(context).bodyMedium.override(
-                                                                                                                  font: GoogleFonts.roboto(
-                                                                                                                    fontWeight: FontWeight.w900,
-                                                                                                                    fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
-                                                                                                                  ),
-                                                                                                                  fontSize: 45.0,
-                                                                                                                  letterSpacing: 0.0,
-                                                                                                                  fontWeight: FontWeight.w900,
-                                                                                                                  fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
-                                                                                                                ),
-                                                                                                          ),
-                                                                                                          Row(
-                                                                                                            mainAxisSize: MainAxisSize.max,
-                                                                                                            children: [
-                                                                                                              Text(
-                                                                                                                (String var1) {
-                                                                                                                  return var1 + ' ';
-                                                                                                                }(upComingTripsItem.departureAirport),
-                                                                                                                style: FlutterFlowTheme.of(context).bodyMedium.override(
-                                                                                                                      font: GoogleFonts.roboto(
-                                                                                                                        fontWeight: FontWeight.normal,
-                                                                                                                        fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
-                                                                                                                      ),
-                                                                                                                      fontSize: 16.0,
-                                                                                                                      letterSpacing: 0.0,
-                                                                                                                      fontWeight: FontWeight.normal,
+                                                                                                    Align(
+                                                                                                      alignment: AlignmentDirectional(-1.0, -1.0),
+                                                                                                      child: ClipRRect(
+                                                                                                        borderRadius: BorderRadius.circular(8.0),
+                                                                                                        child: Image.asset(
+                                                                                                          'assets/images/Screw.png',
+                                                                                                          width: 20.0,
+                                                                                                          height: 20.0,
+                                                                                                          fit: BoxFit.cover,
+                                                                                                        ),
+                                                                                                      ),
+                                                                                                    ),
+                                                                                                  ],
+                                                                                                ),
+                                                                                                Padding(
+                                                                                                  padding: EdgeInsetsDirectional.fromSTEB(20.0, 6.0, 10.0, 0.0),
+                                                                                                  child: Row(
+                                                                                                    mainAxisSize: MainAxisSize.max,
+                                                                                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                                                                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                                                                                    children: [
+                                                                                                      Expanded(
+                                                                                                        child: Column(
+                                                                                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                                                                                          children: [
+                                                                                                            Text(
+                                                                                                              dateTimeFormat("jm", functions.convertTimeToDateTime(upComingTripsItem.departureTime)).toUpperCase(),
+                                                                                                              style: FlutterFlowTheme.of(context).bodyMedium.override(
+                                                                                                                    font: GoogleFonts.roboto(
+                                                                                                                      fontWeight: FontWeight.w700,
                                                                                                                       fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
                                                                                                                     ),
-                                                                                                              ),
-                                                                                                              Text(
-                                                                                                                upComingTripsItem.departureTerminal,
+                                                                                                                    color: Color(0xFF2D343F),
+                                                                                                                    fontSize: 18.0,
+                                                                                                                    letterSpacing: 0.0,
+                                                                                                                    fontWeight: FontWeight.w700,
+                                                                                                                    fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
+                                                                                                                  ),
+                                                                                                            ),
+                                                                                                            Padding(
+                                                                                                              padding: EdgeInsetsDirectional.fromSTEB(0.0, 4.0, 0.0, 0.0),
+                                                                                                              child: Text(
+                                                                                                                valueOrDefault<String>(
+                                                                                                                  upComingTripsItem.departureAirportName,
+                                                                                                                  upComingTripsItem.departureAirport,
+                                                                                                                ),
+                                                                                                                maxLines: 2,
+                                                                                                                overflow: TextOverflow.ellipsis,
                                                                                                                 style: FlutterFlowTheme.of(context).bodyMedium.override(
                                                                                                                       font: GoogleFonts.roboto(
                                                                                                                         fontWeight: FlutterFlowTheme.of(context).bodyMedium.fontWeight,
                                                                                                                         fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
                                                                                                                       ),
-                                                                                                                      fontSize: 18.0,
+                                                                                                                      color: Color(0xFF9C9C9C),
+                                                                                                                      fontSize: 14.0,
                                                                                                                       letterSpacing: 0.0,
                                                                                                                       fontWeight: FlutterFlowTheme.of(context).bodyMedium.fontWeight,
                                                                                                                       fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
                                                                                                                     ),
                                                                                                               ),
+                                                                                                            ),
+                                                                                                          ],
+                                                                                                        ),
+                                                                                                      ),
+                                                                                                      Padding(
+                                                                                                        padding: EdgeInsetsDirectional.fromSTEB(0.0, 10.0, 20.0, 0.0),
+                                                                                                        child: ClipRRect(
+                                                                                                          borderRadius: BorderRadius.circular(8.0),
+                                                                                                          child: SvgPicture.asset(
+                                                                                                            'assets/images/arrowOutward.svg',
+                                                                                                            width: 70.0,
+                                                                                                            height: 40.0,
+                                                                                                            fit: BoxFit.contain,
+                                                                                                          ),
+                                                                                                        ),
+                                                                                                      ),
+                                                                                                    ],
+                                                                                                  ),
+                                                                                                ),
+                                                                                                const SizedBox(height: 10.0),
+                                                                                                Padding(
+                                                                                                  padding: EdgeInsetsDirectional.fromSTEB(20.0, 0.0, 0.0, 5.0),
+                                                                                                  child: Column(
+                                                                                                    mainAxisSize: MainAxisSize.max,
+                                                                                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                                                                                    children: [
+                                                                                                      if (withinThreeHours && !withinTwoHours)
+                                                                                                        Column(
+                                                                                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                                                                                          children: [
+                                                                                                            Text(
+                                                                                                              'Terminal Name',
+                                                                                                              style: FlutterFlowTheme.of(context).bodyMedium.override(
+                                                                                                                    font: GoogleFonts.roboto(
+                                                                                                                      fontWeight: FlutterFlowTheme.of(context).bodyMedium.fontWeight,
+                                                                                                                      fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
+                                                                                                                    ),
+                                                                                                                    color: FlutterFlowTheme.of(context).secondaryText,
+                                                                                                                    letterSpacing: 0.0,
+                                                                                                                    fontWeight: FlutterFlowTheme.of(context).bodyMedium.fontWeight,
+                                                                                                                    fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
+                                                                                                                  ),
+                                                                                                            ),
+                                                                                                            Text(
+                                                                                                              valueOrDefault<String>(
+                                                                                                                upComingTripsItem.departureTerminal,
+                                                                                                                'N/A',
+                                                                                                              ),
+                                                                                                              style: FlutterFlowTheme.of(context).bodyMedium.override(
+                                                                                                                    font: GoogleFonts.roboto(
+                                                                                                                      fontWeight: FontWeight.w900,
+                                                                                                                      fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
+                                                                                                                    ),
+                                                                                                                    fontSize: 45.0,
+                                                                                                                    letterSpacing: 0.0,
+                                                                                                                    fontWeight: FontWeight.w900,
+                                                                                                                    fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
+                                                                                                                  ),
+                                                                                                            ),
+                                                                                                            const Row(
+                                                                                                              mainAxisSize: MainAxisSize.max,
+                                                                                                              children: [
+                                                                                                                // Text(
+                                                                                                                //   valueOrDefault<String>(
+                                                                                                                //     (String gateNumber) {
+                                                                                                                //       return 'Gate Number - ' + gateNumber;
+                                                                                                                //     }(upComingTripsItem.gateNumber),
+                                                                                                                //     'N/A',
+                                                                                                                //   ),
+                                                                                                                //   style: FlutterFlowTheme.of(context).bodyMedium.override(
+                                                                                                                //         font: GoogleFonts.roboto(
+                                                                                                                //           fontWeight: FontWeight.w300,
+                                                                                                                //           fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
+                                                                                                                //         ),
+                                                                                                                //         color: Color(0xFF2D343F),
+                                                                                                                //         fontSize: 24.0,
+                                                                                                                //         letterSpacing: 0.0,
+                                                                                                                //         fontWeight: FontWeight.w300,
+                                                                                                                //         fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
+                                                                                                                //       ),
+                                                                                                                // ),
+                                                                                                              ],
+                                                                                                            ),
+                                                                                                          ],
+                                                                                                        ),
+                                                                                                      if (withinTwoHours && !withinOneHour)
+                                                                                                        Padding(
+                                                                                                          padding: EdgeInsetsDirectional.fromSTEB(0.0, 8.0, 0.0, 0.0),
+                                                                                                          child: Column(
+                                                                                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                                                                                            children: [
+                                                                                                              Text(
+                                                                                                                'Gate Number',
+                                                                                                                style: FlutterFlowTheme.of(context).bodyMedium.override(
+                                                                                                                      font: GoogleFonts.roboto(
+                                                                                                                        fontWeight: FlutterFlowTheme.of(context).bodyMedium.fontWeight,
+                                                                                                                        fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
+                                                                                                                      ),
+                                                                                                                      color: FlutterFlowTheme.of(context).secondaryText,
+                                                                                                                      letterSpacing: 0.0,
+                                                                                                                      fontWeight: FlutterFlowTheme.of(context).bodyMedium.fontWeight,
+                                                                                                                      fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
+                                                                                                                    ),
+                                                                                                              ),
+                                                                                                              Text(
+                                                                                                                upComingTripsItem.gateNumber,
+                                                                                                                style: FlutterFlowTheme.of(context).bodyMedium.override(
+                                                                                                                      font: GoogleFonts.roboto(
+                                                                                                                        fontWeight: FontWeight.w900,
+                                                                                                                        fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
+                                                                                                                      ),
+                                                                                                                      fontSize: 45.0,
+                                                                                                                      letterSpacing: 0.0,
+                                                                                                                      fontWeight: FontWeight.w900,
+                                                                                                                      fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
+                                                                                                                    ),
+                                                                                                              ),
                                                                                                             ],
                                                                                                           ),
+                                                                                                        ),
+                                                                                                      if (showSeatCard && upComingTripsItem.belt.isEmpty)
+                                                                                                        Padding(
+                                                                                                          padding: EdgeInsetsDirectional.fromSTEB(0.0, 8.0, 0.0, 0.0),
+                                                                                                          child: Column(
+                                                                                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                                                                                            children: [
+                                                                                                              Text(
+                                                                                                                'Seat Number',
+                                                                                                                style: FlutterFlowTheme.of(context).bodyMedium.override(
+                                                                                                                      font: GoogleFonts.roboto(
+                                                                                                                        fontWeight: FlutterFlowTheme.of(context).bodyMedium.fontWeight,
+                                                                                                                        fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
+                                                                                                                      ),
+                                                                                                                      color: FlutterFlowTheme.of(context).secondaryText,
+                                                                                                                      letterSpacing: 0.0,
+                                                                                                                      fontWeight: FlutterFlowTheme.of(context).bodyMedium.fontWeight,
+                                                                                                                      fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
+                                                                                                                    ),
+                                                                                                              ),
+                                                                                                              Text(
+                                                                                                                upComingTripsItem.seat,
+                                                                                                                style: FlutterFlowTheme.of(context).bodyMedium.override(
+                                                                                                                      font: GoogleFonts.roboto(
+                                                                                                                        fontWeight: FontWeight.w600,
+                                                                                                                        fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
+                                                                                                                      ),
+                                                                                                                      fontSize: 45.0,
+                                                                                                                      letterSpacing: 0.0,
+                                                                                                                      fontWeight: FontWeight.w600,
+                                                                                                                      fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
+                                                                                                                    ),
+                                                                                                              ),
+                                                                                                            ],
+                                                                                                          ),
+                                                                                                        ),
+                                                                                                      if (arrivalPassed && upComingTripsItem.belt.isNotEmpty)
+                                                                                                        Padding(
+                                                                                                          padding: EdgeInsetsDirectional.fromSTEB(0.0, 8.0, 0.0, 0.0),
+                                                                                                          child: Column(
+                                                                                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                                                                                            children: [
+                                                                                                              Text(
+                                                                                                                'Belt Number',
+                                                                                                                style: FlutterFlowTheme.of(context).bodyMedium.override(
+                                                                                                                      font: GoogleFonts.roboto(
+                                                                                                                        fontWeight: FlutterFlowTheme.of(context).bodyMedium.fontWeight,
+                                                                                                                        fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
+                                                                                                                      ),
+                                                                                                                      color: FlutterFlowTheme.of(context).secondaryText,
+                                                                                                                      letterSpacing: 0.0,
+                                                                                                                      fontWeight: FlutterFlowTheme.of(context).bodyMedium.fontWeight,
+                                                                                                                      fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
+                                                                                                                    ),
+                                                                                                              ),
+                                                                                                              Text(
+                                                                                                                upComingTripsItem.belt,
+                                                                                                                style: FlutterFlowTheme.of(context).bodyMedium.override(
+                                                                                                                      font: GoogleFonts.roboto(
+                                                                                                                        fontWeight: FontWeight.w900,
+                                                                                                                        fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
+                                                                                                                      ),
+                                                                                                                      fontSize: 45.0,
+                                                                                                                      letterSpacing: 0.0,
+                                                                                                                      fontWeight: FontWeight.w900,
+                                                                                                                      fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
+                                                                                                                    ),
+                                                                                                              ),
+                                                                                                            ],
+                                                                                                          ),
+                                                                                                        ),
+                                                                                                      const Row(
+                                                                                                        mainAxisSize: MainAxisSize.max,
+                                                                                                        children: [
+                                                                                                          // Text(
+                                                                                                          //   valueOrDefault<String>(
+                                                                                                          //     (String gateNumber) {
+                                                                                                          //       return 'Gate Number - ' + gateNumber;
+                                                                                                          //     }(upComingTripsItem.gateNumber),
+                                                                                                          //     'N/A',
+                                                                                                          //   ),
+                                                                                                          //   style: FlutterFlowTheme.of(context).bodyMedium.override(
+                                                                                                          //         font: GoogleFonts.roboto(
+                                                                                                          //           fontWeight: FontWeight.w300,
+                                                                                                          //           fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
+                                                                                                          //         ),
+                                                                                                          //         color: Color(0xFF2D343F),
+                                                                                                          //         fontSize: 24.0,
+                                                                                                          //         letterSpacing: 0.0,
+                                                                                                          //         fontWeight: FontWeight.w300,
+                                                                                                          //         fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
+                                                                                                          //       ),
+                                                                                                          // ),
                                                                                                         ],
+                                                                                                      ),
+                                                                                                    ],
+                                                                                                  ),
+                                                                                                ),
+                                                                                                Align(
+                                                                                                  alignment: AlignmentDirectional(1.0, 0.0),
+                                                                                                  child: Padding(
+                                                                                                    padding: EdgeInsetsDirectional.fromSTEB(0.0, 0.0, 15.0, 5.0),
+                                                                                                    child: InkWell(
+                                                                                                      splashColor: Colors.transparent,
+                                                                                                      focusColor: Colors.transparent,
+                                                                                                      hoverColor: Colors.transparent,
+                                                                                                      highlightColor: Colors.transparent,
+                                                                                                      onTap: () async {
+                                                                                                        context.pushNamed(
+                                                                                                          TripDetailsWidget.routeName,
+                                                                                                          queryParameters: {
+                                                                                                            'currentTrip': serializeParam(
+                                                                                                              TripStruct(
+                                                                                                                pnrNumber: upComingTripsItem.pnrNumber,
+                                                                                                                departureDate: functions.parseDateTime(upComingTripsItem.departureDate),
+                                                                                                                airline: upComingTripsItem.airline,
+                                                                                                                flightNumber: upComingTripsItem.flightNumber,
+                                                                                                                flightClass: upComingTripsItem.flightClass,
+                                                                                                                departureAirport: upComingTripsItem.departureAirport,
+                                                                                                                departureTimezone: upComingTripsItem.departureTimezone,
+                                                                                                                departureTerminal: upComingTripsItem.departureTerminal,
+                                                                                                                seat: upComingTripsItem.seat,
+                                                                                                                gateNumber: upComingTripsItem.gateNumber,
+                                                                                                                arrivalAirport: upComingTripsItem.arrivalAirport,
+                                                                                                                arrivalTime: functions.convertTimeToDateTime(upComingTripsItem.arrivalTime),
+                                                                                                                arrivalTimezone: upComingTripsItem.arrivalTimezone,
+                                                                                                                arrivalTerminal: upComingTripsItem.arrivalTerminal,
+                                                                                                                createdAt: functions.parseDateTime(upComingTripsItem.createdAt),
+                                                                                                                updatedAt: functions.parseDateTime(upComingTripsItem.updatedAt),
+                                                                                                                id: upComingTripsItem.id,
+                                                                                                                departureTime: functions.convertTimeToDateTime(upComingTripsItem.departureTime),
+                                                                                                                araivalDate: functions.parseDateTime(upComingTripsItem.araivalDate),
+                                                                                                                arrivalAirportName: upComingTripsItem.arrivalAirportName,
+                                                                                                                departureAirportName: upComingTripsItem.departureAirportName,
+                                                                                                              ),
+                                                                                                              ParamType.DataStruct,
+                                                                                                            ),
+                                                                                                          }.withoutNulls,
+                                                                                                        );
+                                                                                                      },
+                                                                                                      child: Text(
+                                                                                                        'View Details',
+                                                                                                        style: FlutterFlowTheme.of(context).bodyMedium.override(
+                                                                                                              font: GoogleFonts.roboto(
+                                                                                                                fontWeight: FontWeight.w600,
+                                                                                                                fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
+                                                                                                              ),
+                                                                                                              color: FlutterFlowTheme.of(context).primary,
+                                                                                                              letterSpacing: 0.0,
+                                                                                                              fontWeight: FontWeight.w600,
+                                                                                                              fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
+                                                                                                            ),
+                                                                                                      ),
+                                                                                                    ),
+                                                                                                  ),
+                                                                                                ),
+                                                                                                Row(
+                                                                                                  mainAxisSize: MainAxisSize.max,
+                                                                                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                                                                                  children: [
+                                                                                                    Align(
+                                                                                                      alignment: AlignmentDirectional(-1.0, -1.0),
+                                                                                                      child: ClipRRect(
+                                                                                                        borderRadius: BorderRadius.circular(8.0),
+                                                                                                        child: Image.asset(
+                                                                                                          'assets/images/Screw.png',
+                                                                                                          width: 20.0,
+                                                                                                          height: 20.0,
+                                                                                                          fit: BoxFit.cover,
+                                                                                                        ),
                                                                                                       ),
                                                                                                     ),
                                                                                                     Align(
-                                                                                                      alignment: AlignmentDirectional(1.0, 0.0),
-                                                                                                      child: Padding(
-                                                                                                        padding: EdgeInsetsDirectional.fromSTEB(0.0, 0.0, 15.0, 5.0),
-                                                                                                        child: InkWell(
-                                                                                                          splashColor: Colors.transparent,
-                                                                                                          focusColor: Colors.transparent,
-                                                                                                          hoverColor: Colors.transparent,
-                                                                                                          highlightColor: Colors.transparent,
-                                                                                                          onTap: () async {
-                                                                                                            context.pushNamed(
-                                                                                                              TripDetailsWidget.routeName,
-                                                                                                              queryParameters: {
-                                                                                                                'currentTrip': serializeParam(
-                                                                                                                  TripStruct(
-                                                                                                                    pnrNumber: upComingTripsItem.pnrNumber,
-                                                                                                                    departureDate: functions.parseDateTime(upComingTripsItem.departureDate),
-                                                                                                                    airline: upComingTripsItem.airline,
-                                                                                                                    flightNumber: upComingTripsItem.flightNumber,
-                                                                                                                    flightClass: upComingTripsItem.flightClass,
-                                                                                                                    departureAirport: upComingTripsItem.departureAirport,
-                                                                                                                    departureTimezone: upComingTripsItem.departureTimezone,
-                                                                                                                    departureTerminal: upComingTripsItem.departureTerminal,
-                                                                                                                    seat: upComingTripsItem.seat,
-                                                                                                                    gateNumber: upComingTripsItem.gateNumber,
-                                                                                                                    arrivalAirport: upComingTripsItem.arrivalAirport,
-                                                                                                                    arrivalTime: functions.convertTimeToDateTime(upComingTripsItem.arrivalTime),
-                                                                                                                    arrivalTimezone: upComingTripsItem.arrivalTimezone,
-                                                                                                                    arrivalTerminal: upComingTripsItem.arrivalTerminal,
-                                                                                                                    createdAt: functions.parseDateTime(upComingTripsItem.createdAt),
-                                                                                                                    updatedAt: functions.parseDateTime(upComingTripsItem.updatedAt),
-                                                                                                                    id: upComingTripsItem.id,
-                                                                                                                    departureTime: functions.convertTimeToDateTime(upComingTripsItem.departureTime),
-                                                                                                                    araivalDate: functions.parseDateTime(upComingTripsItem.araivalDate),
-                                                                                                                    arrivalAirportName: upComingTripsItem.arrivalAirportName,
-                                                                                                                    departureAirportName: upComingTripsItem.departureAirportName,
-                                                                                                                  ),
-                                                                                                                  ParamType.DataStruct,
-                                                                                                                ),
-                                                                                                              }.withoutNulls,
-                                                                                                            );
-                                                                                                          },
-                                                                                                          child: Text(
-                                                                                                            'View Details',
-                                                                                                            style: FlutterFlowTheme.of(context).bodyMedium.override(
-                                                                                                                  fontFamily: FlutterFlowTheme.of(context).bodyMediumFamily,
-                                                                                                                  color: FlutterFlowTheme.of(context).primary,
-                                                                                                                  letterSpacing: 0.0,
-                                                                                                                  useGoogleFonts: !FlutterFlowTheme.of(context).bodyMediumIsCustom,
-                                                                                                                ),
-                                                                                                          ),
+                                                                                                      alignment: AlignmentDirectional(-1.0, -1.0),
+                                                                                                      child: ClipRRect(
+                                                                                                        borderRadius: BorderRadius.circular(8.0),
+                                                                                                        child: Image.asset(
+                                                                                                          'assets/images/Screw.png',
+                                                                                                          width: 20.0,
+                                                                                                          height: 20.0,
+                                                                                                          fit: BoxFit.cover,
                                                                                                         ),
                                                                                                       ),
                                                                                                     ),
-                                                                                                    Row(
-                                                                                                      mainAxisSize: MainAxisSize.max,
-                                                                                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                                                                                      children: [
-                                                                                                        Align(
-                                                                                                          alignment: AlignmentDirectional(-1.0, -1.0),
-                                                                                                          child: ClipRRect(
-                                                                                                            borderRadius: BorderRadius.circular(8.0),
-                                                                                                            child: Image.asset(
-                                                                                                              'assets/images/Screw.png',
-                                                                                                              width: 20.0,
-                                                                                                              height: 20.0,
-                                                                                                              fit: BoxFit.cover,
-                                                                                                            ),
-                                                                                                          ),
-                                                                                                        ),
-                                                                                                        Align(
-                                                                                                          alignment: AlignmentDirectional(-1.0, -1.0),
-                                                                                                          child: ClipRRect(
-                                                                                                            borderRadius: BorderRadius.circular(8.0),
-                                                                                                            child: Image.asset(
-                                                                                                              'assets/images/Screw.png',
-                                                                                                              width: 20.0,
-                                                                                                              height: 20.0,
-                                                                                                              fit: BoxFit.cover,
-                                                                                                            ),
-                                                                                                          ),
-                                                                                                        ),
-                                                                                                      ],
-                                                                                                    ),
                                                                                                   ],
                                                                                                 ),
-                                                                                              );
-                                                                                            }
-                                                                                          },
-                                                                                        ),
-                                                                                    ],
+                                                                                              ],
+                                                                                            ),
+                                                                                          ),
+                                                                                      ],
+                                                                                    ),
                                                                                   ),
-                                                                                ),
-                                                                              );
-                                                                            }
-                                                                          },
-                                                                        ),
-                                                                      ).animateOnPageLoad(
-                                                                              animationsMap['containerOnPageLoadAnimation1']!),
+                                                                                );
+                                                                              }
+                                                                            },
+                                                                          ),
+                                                                        ).animateOnPageLoad(animationsMap['containerOnPageLoadAnimation1']!),
+                                                                      ),
                                                                     ),
-                                                                  ),
-                                                                ],
+                                                                  ],
+                                                                ),
                                                               );
                                                             },
                                                           ),
@@ -2390,6 +2430,428 @@ class _HomeWidgetState extends State<HomeWidget> with TickerProviderStateMixin {
                                                 },
                                               );
                                             } else {
+                                              // No upcoming trips. If we just arrived within the past hour and have a belt number,
+                                              // keep showing the belt card so users can still view it after completion.
+                                              final arrivalPassed = functions
+                                                      .isArrivalAfterMinutes(
+                                                    FFAppState().arrivalTime,
+                                                    0,
+                                                  ) ==
+                                                  true;
+                                              final withinOneHourAfterArrival =
+                                                  arrivalPassed &&
+                                                      (functions
+                                                              .isArrivalAfterMinutes(
+                                                            FFAppState()
+                                                                .arrivalTime,
+                                                            60,
+                                                          ) ==
+                                                          false);
+                                              final hasBelt = FFAppState()
+                                                  .beltNumber
+                                                  .isNotEmpty;
+                                              final arrivalLabel = FFAppState()
+                                                  .arrivalAirportName;
+                                              final arrivalTimeText =
+                                                  functions.parseDateTime(
+                                                      FFAppState().arrivalTime);
+                                              final arrivalTimeDisplay =
+                                                  arrivalTimeText ??
+                                                      DateTime.now();
+
+                                              if (hasBelt &&
+                                                  withinOneHourAfterArrival) {
+                                                return Padding(
+                                                  padding: EdgeInsetsDirectional
+                                                      .fromSTEB(18.0, 10.0,
+                                                          15.0, 12.0),
+                                                  child: Container(
+                                                    width: double.infinity,
+                                                    decoration: BoxDecoration(
+                                                      color:
+                                                          FlutterFlowTheme.of(
+                                                                  context)
+                                                              .secondary,
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                              22.0),
+                                                      boxShadow: const [
+                                                        BoxShadow(
+                                                          color:
+                                                              Color(0x33000000),
+                                                          blurRadius: 8.0,
+                                                          offset: Offset(0, 3),
+                                                        ),
+                                                      ],
+                                                    ),
+                                                    child: Padding(
+                                                      padding:
+                                                          EdgeInsets.all(10.0),
+                                                      child: Column(
+                                                        mainAxisSize:
+                                                            MainAxisSize.min,
+                                                        children: [
+                                                          Row(
+                                                            mainAxisSize:
+                                                                MainAxisSize
+                                                                    .max,
+                                                            mainAxisAlignment:
+                                                                MainAxisAlignment
+                                                                    .spaceBetween,
+                                                            children: [
+                                                              Align(
+                                                                alignment:
+                                                                    AlignmentDirectional(
+                                                                        -1.0,
+                                                                        -1.0),
+                                                                child:
+                                                                    ClipRRect(
+                                                                  borderRadius:
+                                                                      BorderRadius
+                                                                          .circular(
+                                                                              8.0),
+                                                                  child: Image
+                                                                      .asset(
+                                                                    'assets/images/Screw.png',
+                                                                    width: 20.0,
+                                                                    height:
+                                                                        20.0,
+                                                                    fit: BoxFit
+                                                                        .cover,
+                                                                  ),
+                                                                ),
+                                                              ),
+                                                              Align(
+                                                                alignment:
+                                                                    AlignmentDirectional(
+                                                                        -1.0,
+                                                                        -1.0),
+                                                                child:
+                                                                    ClipRRect(
+                                                                  borderRadius:
+                                                                      BorderRadius
+                                                                          .circular(
+                                                                              8.0),
+                                                                  child: Image
+                                                                      .asset(
+                                                                    'assets/images/Screw.png',
+                                                                    width: 20.0,
+                                                                    height:
+                                                                        20.0,
+                                                                    fit: BoxFit
+                                                                        .cover,
+                                                                  ),
+                                                                ),
+                                                              ),
+                                                            ],
+                                                          ),
+                                                          Padding(
+                                                            padding:
+                                                                EdgeInsetsDirectional
+                                                                    .fromSTEB(
+                                                                        20.0,
+                                                                        6.0,
+                                                                        10.0,
+                                                                        0.0),
+                                                            child: Row(
+                                                              mainAxisSize:
+                                                                  MainAxisSize
+                                                                      .max,
+                                                              mainAxisAlignment:
+                                                                  MainAxisAlignment
+                                                                      .spaceBetween,
+                                                              crossAxisAlignment:
+                                                                  CrossAxisAlignment
+                                                                      .start,
+                                                              children: [
+                                                                Expanded(
+                                                                  child: Column(
+                                                                    crossAxisAlignment:
+                                                                        CrossAxisAlignment
+                                                                            .start,
+                                                                    children: [
+                                                                      Text(
+                                                                        dateTimeFormat("jm",
+                                                                                arrivalTimeDisplay)
+                                                                            .toUpperCase(),
+                                                                        style: FlutterFlowTheme.of(context)
+                                                                            .bodyMedium
+                                                                            .override(
+                                                                              font: GoogleFonts.roboto(
+                                                                                fontWeight: FontWeight.w700,
+                                                                                fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
+                                                                              ),
+                                                                              color: Color(0xFF2D343F),
+                                                                              fontSize: 18.0,
+                                                                              letterSpacing: 0.0,
+                                                                              fontWeight: FontWeight.w700,
+                                                                              fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
+                                                                            ),
+                                                                      ),
+                                                                      Padding(
+                                                                        padding: EdgeInsetsDirectional.fromSTEB(
+                                                                            0.0,
+                                                                            4.0,
+                                                                            0.0,
+                                                                            0.0),
+                                                                        child:
+                                                                            Text(
+                                                                          arrivalLabel.isNotEmpty
+                                                                              ? arrivalLabel
+                                                                              : 'Arrival Airport',
+                                                                          maxLines:
+                                                                              2,
+                                                                          overflow:
+                                                                              TextOverflow.ellipsis,
+                                                                          style: FlutterFlowTheme.of(context)
+                                                                              .bodyMedium
+                                                                              .override(
+                                                                                font: GoogleFonts.roboto(
+                                                                                  fontWeight: FlutterFlowTheme.of(context).bodyMedium.fontWeight,
+                                                                                  fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
+                                                                                ),
+                                                                                color: Color(0xFF9C9C9C),
+                                                                                fontSize: 14.0,
+                                                                                letterSpacing: 0.0,
+                                                                                fontWeight: FlutterFlowTheme.of(context).bodyMedium.fontWeight,
+                                                                                fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
+                                                                              ),
+                                                                        ),
+                                                                      ),
+                                                                    ],
+                                                                  ),
+                                                                ),
+                                                                Padding(
+                                                                  padding: EdgeInsetsDirectional
+                                                                      .fromSTEB(
+                                                                          0.0,
+                                                                          10.0,
+                                                                          20.0,
+                                                                          0.0),
+                                                                  child:
+                                                                      ClipRRect(
+                                                                    borderRadius:
+                                                                        BorderRadius.circular(
+                                                                            8.0),
+                                                                    child: SvgPicture
+                                                                        .asset(
+                                                                      'assets/images/arrowOutward.svg',
+                                                                      width:
+                                                                          70.0,
+                                                                      height:
+                                                                          40.0,
+                                                                      fit: BoxFit
+                                                                          .contain,
+                                                                    ),
+                                                                  ),
+                                                                ),
+                                                              ],
+                                                            ),
+                                                          ),
+                                                          const SizedBox(
+                                                              height: 10.0),
+                                                          Padding(
+                                                            padding:
+                                                                EdgeInsetsDirectional
+                                                                    .fromSTEB(
+                                                                        20.0,
+                                                                        0.0,
+                                                                        0.0,
+                                                                        5.0),
+                                                            child: Column(
+                                                              mainAxisSize:
+                                                                  MainAxisSize
+                                                                      .max,
+                                                              crossAxisAlignment:
+                                                                  CrossAxisAlignment
+                                                                      .start,
+                                                              children: [
+                                                                if (arrivalPassed &&
+                                                                    FFAppState()
+                                                                        .beltNumber
+                                                                        .isNotEmpty)
+                                                                  const Row(
+                                                                    mainAxisSize:
+                                                                        MainAxisSize
+                                                                            .max,
+                                                                    children: [],
+                                                                  ),
+                                                              ],
+                                                            ),
+                                                          ),
+                                                          Align(
+                                                            alignment:
+                                                                AlignmentDirectional(
+                                                                    1.0, 0.0),
+                                                            child: Padding(
+                                                              padding:
+                                                                  EdgeInsetsDirectional
+                                                                      .fromSTEB(
+                                                                          0.0,
+                                                                          0.0,
+                                                                          15.0,
+                                                                          5.0),
+                                                              child: InkWell(
+                                                                splashColor: Colors
+                                                                    .transparent,
+                                                                focusColor: Colors
+                                                                    .transparent,
+                                                                hoverColor: Colors
+                                                                    .transparent,
+                                                                highlightColor:
+                                                                    Colors
+                                                                        .transparent,
+                                                                onTap:
+                                                                    () async {
+                                                                  context
+                                                                      .pushNamed(
+                                                                    TripDetailsWidget
+                                                                        .routeName,
+                                                                    queryParameters:
+                                                                        {
+                                                                      'currentTrip':
+                                                                          serializeParam(
+                                                                        TripStruct(
+                                                                          pnrNumber:
+                                                                              FFAppState().pnr,
+                                                                          airline:
+                                                                              FFAppState().airline,
+                                                                          flightNumber:
+                                                                              FFAppState().flightNumber,
+                                                                          flightClass:
+                                                                              FFAppState().flightClass,
+                                                                          departureDate:
+                                                                              functions.parseDateTime(FFAppState().depDate),
+                                                                          departureTime:
+                                                                              functions.parseDateTime(FFAppState().depTime),
+                                                                          departureAt:
+                                                                              functions.parseDateTime(FFAppState().depTime),
+                                                                          departureAirport:
+                                                                              FFAppState().departureAirport,
+                                                                          departureTimezone:
+                                                                              FFAppState().departureTimezone,
+                                                                          departureTerminal:
+                                                                              FFAppState().departureTerminal,
+                                                                          seat:
+                                                                              FFAppState().seat,
+                                                                          gateNumber:
+                                                                              FFAppState().gateNumber,
+                                                                          arrivalTime:
+                                                                              arrivalTimeText,
+                                                                          arrivalAt:
+                                                                              arrivalTimeText,
+                                                                          arrivalAirport:
+                                                                              FFAppState().arrivalAirport,
+                                                                          arrivalAirportName:
+                                                                              arrivalLabel,
+                                                                          arrivalTimezone:
+                                                                              FFAppState().arrivalTimezone,
+                                                                          arrivalTerminal:
+                                                                              FFAppState().arrivalTerminal,
+                                                                          belt:
+                                                                              FFAppState().beltNumber,
+                                                                          id: FFAppState()
+                                                                              .currentTripId,
+                                                                          status:
+                                                                              FFAppState().tripStatus,
+                                                                          departureAirportName:
+                                                                              FFAppState().departureAirportName,
+                                                                        ),
+                                                                        ParamType
+                                                                            .DataStruct,
+                                                                      ),
+                                                                    }.withoutNulls,
+                                                                  );
+                                                                },
+                                                                child: Text(
+                                                                  'View Details',
+                                                                  style: FlutterFlowTheme.of(
+                                                                          context)
+                                                                      .bodyMedium
+                                                                      .override(
+                                                                        font: GoogleFonts
+                                                                            .roboto(
+                                                                          fontWeight:
+                                                                              FontWeight.w600,
+                                                                          fontStyle: FlutterFlowTheme.of(context)
+                                                                              .bodyMedium
+                                                                              .fontStyle,
+                                                                        ),
+                                                                        color: FlutterFlowTheme.of(context)
+                                                                            .primary,
+                                                                        letterSpacing:
+                                                                            0.0,
+                                                                        fontWeight:
+                                                                            FontWeight.w600,
+                                                                        fontStyle: FlutterFlowTheme.of(context)
+                                                                            .bodyMedium
+                                                                            .fontStyle,
+                                                                      ),
+                                                                ),
+                                                              ),
+                                                            ),
+                                                          ),
+                                                          Row(
+                                                            mainAxisSize:
+                                                                MainAxisSize
+                                                                    .max,
+                                                            mainAxisAlignment:
+                                                                MainAxisAlignment
+                                                                    .spaceBetween,
+                                                            children: [
+                                                              Align(
+                                                                alignment:
+                                                                    AlignmentDirectional(
+                                                                        -1.0,
+                                                                        -1.0),
+                                                                child:
+                                                                    ClipRRect(
+                                                                  borderRadius:
+                                                                      BorderRadius
+                                                                          .circular(
+                                                                              8.0),
+                                                                  child: Image
+                                                                      .asset(
+                                                                    'assets/images/Screw.png',
+                                                                    width: 20.0,
+                                                                    height:
+                                                                        20.0,
+                                                                    fit: BoxFit
+                                                                        .cover,
+                                                                  ),
+                                                                ),
+                                                              ),
+                                                              Align(
+                                                                alignment:
+                                                                    AlignmentDirectional(
+                                                                        -1.0,
+                                                                        -1.0),
+                                                                child:
+                                                                    ClipRRect(
+                                                                  borderRadius:
+                                                                      BorderRadius
+                                                                          .circular(
+                                                                              8.0),
+                                                                  child: Image
+                                                                      .asset(
+                                                                    'assets/images/Screw.png',
+                                                                    width: 20.0,
+                                                                    height:
+                                                                        20.0,
+                                                                    fit: BoxFit
+                                                                        .cover,
+                                                                  ),
+                                                                ),
+                                                              ),
+                                                            ],
+                                                          ),
+                                                        ],
+                                                      ),
+                                                    ),
+                                                  ),
+                                                );
+                                              }
+
                                               return Padding(
                                                 padding: EdgeInsets.all(20.0),
                                                 child: InkWell(
@@ -2434,45 +2896,57 @@ class _HomeWidgetState extends State<HomeWidget> with TickerProviderStateMixin {
                                                                 .secondary,
                                                             size: 24.0,
                                                           ),
-                                                          Row(
-                                                            mainAxisSize:
-                                                                MainAxisSize
-                                                                    .max,
-                                                            children: [
-                                                              Padding(
-                                                                padding:
-                                                                    EdgeInsetsDirectional
+                                                          Expanded(
+                                                            child: Row(
+                                                              mainAxisAlignment:
+                                                                  MainAxisAlignment
+                                                                      .end,
+                                                              children: [
+                                                                Flexible(
+                                                                  child:
+                                                                      Padding(
+                                                                    padding: EdgeInsetsDirectional
                                                                         .fromSTEB(
                                                                             0.0,
                                                                             0.0,
                                                                             5.0,
                                                                             0.0),
-                                                                child: Text(
-                                                                  'Plan Your Next Trip',
-                                                                  style: FlutterFlowTheme.of(
-                                                                          context)
-                                                                      .bodyMedium
-                                                                      .override(
-                                                                        fontFamily:
-                                                                            FlutterFlowTheme.of(context).bodyMediumFamily,
-                                                                        color: Color(
-                                                                            0xB3FFFFFF),
-                                                                        letterSpacing:
-                                                                            0.0,
-                                                                        useGoogleFonts:
-                                                                            !FlutterFlowTheme.of(context).bodyMediumIsCustom,
-                                                                      ),
+                                                                    child: Text(
+                                                                      'Plan Your Next Trip',
+                                                                      maxLines:
+                                                                          1,
+                                                                      overflow:
+                                                                          TextOverflow
+                                                                              .ellipsis,
+                                                                      textAlign:
+                                                                          TextAlign
+                                                                              .right,
+                                                                      style: FlutterFlowTheme.of(
+                                                                              context)
+                                                                          .bodyMedium
+                                                                          .override(
+                                                                            fontFamily:
+                                                                                FlutterFlowTheme.of(context).bodyMediumFamily,
+                                                                            color:
+                                                                                Color(0xB3FFFFFF),
+                                                                            letterSpacing:
+                                                                                0.0,
+                                                                            useGoogleFonts:
+                                                                                !FlutterFlowTheme.of(context).bodyMediumIsCustom,
+                                                                          ),
+                                                                    ),
+                                                                  ),
                                                                 ),
-                                                              ),
-                                                              Icon(
-                                                                Icons
-                                                                    .arrow_forward_ios,
-                                                                color: FlutterFlowTheme.of(
-                                                                        context)
-                                                                    .secondary,
-                                                                size: 16.0,
-                                                              ),
-                                                            ],
+                                                                Icon(
+                                                                  Icons
+                                                                      .arrow_forward_ios,
+                                                                  color: FlutterFlowTheme.of(
+                                                                          context)
+                                                                      .secondary,
+                                                                  size: 16.0,
+                                                                ),
+                                                              ],
+                                                            ),
                                                           ),
                                                         ],
                                                       ),

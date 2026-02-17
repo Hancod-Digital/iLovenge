@@ -18,6 +18,7 @@ class TripStruct extends BaseStruct {
     String? departureTerminal,
     String? seat,
     String? gateNumber,
+    String? belt,
     String? arrivalAirport,
     DateTime? arrivalTime,
     String? arrivalTimezone,
@@ -42,6 +43,7 @@ class TripStruct extends BaseStruct {
         _departureTerminal = departureTerminal,
         _seat = seat,
         _gateNumber = gateNumber,
+        _belt = belt,
         _arrivalAirport = arrivalAirport,
         _arrivalTime = arrivalTime,
         _arrivalTimezone = arrivalTimezone,
@@ -126,6 +128,13 @@ class TripStruct extends BaseStruct {
   set gateNumber(String? val) => _gateNumber = val;
 
   bool hasGateNumber() => _gateNumber != null;
+
+  // "belt" field.
+  String? _belt;
+  String get belt => _belt ?? '';
+  set belt(String? val) => _belt = val;
+
+  bool hasBelt() => _belt != null;
 
   // "arrival_airport" field.
   String? _arrivalAirport;
@@ -236,6 +245,7 @@ class TripStruct extends BaseStruct {
         departureTerminal: data['departure_terminal'] as String?,
         seat: data['seat'] as String?,
         gateNumber: data['gate_number'] as String?,
+        belt: data['belt'] as String?,
         arrivalAirport: data['arrival_airport'] as String?,
         arrivalTime: data['arrival_time'] as DateTime?,
         arrivalTimezone: data['arrival_timezone'] as String?,
@@ -266,6 +276,7 @@ class TripStruct extends BaseStruct {
         'departure_terminal': _departureTerminal,
         'seat': _seat,
         'gate_number': _gateNumber,
+        'belt': _belt,
         'arrival_airport': _arrivalAirport,
         'arrival_time': _arrivalTime,
         'arrival_timezone': _arrivalTimezone,
@@ -322,6 +333,10 @@ class TripStruct extends BaseStruct {
         ),
         'gate_number': serializeParam(
           _gateNumber,
+          ParamType.String,
+        ),
+        'belt': serializeParam(
+          _belt,
           ParamType.String,
         ),
         'arrival_airport': serializeParam(
@@ -431,6 +446,11 @@ class TripStruct extends BaseStruct {
         ),
         gateNumber: deserializeParam(
           data['gate_number'],
+          ParamType.String,
+          false,
+        ),
+        belt: deserializeParam(
+          data['belt'],
           ParamType.String,
           false,
         ),

@@ -46,6 +46,8 @@ Future<bool> addGateNumber() async {
                 FFAppState().tripStatus = tripNowData['status'];
                 FFAppState().depDate = tripNowData['departure_at'];
                 FFAppState().depTime = tripNowData['departure_at'];
+                FFAppState().arrivalTime =
+                    tripNowData['arrival_at']?.toString() ?? '';
                 FFAppState().pnr = tripNowData['pnr_number'];
                 // seat will be evaluated below; initialize to false first
                 FFAppState().seatMissing = false;

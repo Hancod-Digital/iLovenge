@@ -55,6 +55,9 @@ class TripsRow extends SupabaseDataRow {
   String? get gateNumber => getField<String>('gate_number');
   set gateNumber(String? value) => setField<String>('gate_number', value);
 
+  String? get belt => getField<String>('belt');
+  set belt(String? value) => setField<String>('belt', value);
+
   String get arrivalAirport => getField<String>('arrival_airport')!;
   set arrivalAirport(String value) =>
       setField<String>('arrival_airport', value);
