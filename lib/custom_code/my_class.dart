@@ -16,6 +16,7 @@ class ShareIntentManager {
 
   // The stream subscription that needs to live for the app's lifetime.
   static late StreamSubscription _intentDataStreamSubscription;
+  static String? _lastHandledSharedPath;
 
   // Private constructor to prevent someone from creating a new instance.
   ShareIntentManager._();
@@ -35,20 +36,20 @@ class ShareIntentManager {
     // 1. Handle the intent that launched the app from a terminated state.
     ReceiveSharingIntent.instance
         .getInitialMedia()
-        .then((List<SharedMediaFile> value) {
+        .then((List<SharedMediaFile> value) async {
       if (value.isNotEmpty) {
         print('ShareIntentManager: Received initial media.');
-        _handleSharedFiles(value, context);
+        await _handleSharedFiles(value, context);
       }
     });
 
     // 2. Handle intents that are received while the app is running.
     _intentDataStreamSubscription = ReceiveSharingIntent.instance
         .getMediaStream()
-        .listen((List<SharedMediaFile> value) {
+        .listen((List<SharedMediaFile> value) async {
       if (value.isNotEmpty) {
         print('ShareIntentManager: Received media from stream.');
-        _handleSharedFiles(value, context);
+        await _handleSharedFiles(value, context);
       }
     }, onError: (err) {
       print("ShareIntentManager Error: $err");
@@ -57,30 +58,44 @@ class ShareIntentManager {
 
   // --- Private Helper Method ---
   // This contains the logic to process the file and navigate.
-  static void _handleSharedFiles(
-      List<SharedMediaFile> sharedFiles, BuildContext context) {
+  static Future<void> _handleSharedFiles(
+      List<SharedMediaFile> sharedFiles, BuildContext context) async {
     final sharedFile = sharedFiles.first;
-    if (sharedFile.type == SharedMediaType.file) {
-      try {
-        // Use readAsBytesSync for simplicity here since this runs in the background.
-        final fileBytes = File(sharedFile.path).readAsBytesSync();
-        final fileName = sharedFile.path.split('/').last;
+    if (sharedFile.type != SharedMediaType.file) {
+      await ReceiveSharingIntent.instance.reset();
+      return;
+    }
 
-        // Encode the bytes into a Base64 string.
-        final String base64String = base64Encode(fileBytes);
+    final path = sharedFile.path;
+    if (path.isEmpty || _lastHandledSharedPath == path) {
+      await ReceiveSharingIntent.instance.reset();
+      return;
+    }
 
-        // Store the Base64 string and file name in App State.
-        FFAppState().update(() {
-          FFAppState().sharedFileBase64 = base64String;
-          FFAppState().sharedFileName = fileName;
-        });
+    try {
+      final fileBytes = await File(path).readAsBytes();
+      final fileName = path.split('/').last;
 
-        // Navigate to your Add New Trip page.
-        // Make sure 'addNewTrip' is the correct route name for your AddNewTripWidget.
+      // Encode the bytes into a Base64 string.
+      final String base64String = base64Encode(fileBytes);
+
+      // Store the Base64 string and file name in App State.
+      FFAppState().update(() {
+        FFAppState().sharedFileBase64 = base64String;
+        FFAppState().sharedFileName = fileName;
+      });
+
+      _lastHandledSharedPath = path;
+
+      // Navigate to your Add New Trip page.
+      // Make sure 'addNewTrip' is the correct route name for your AddNewTripWidget.
+      if (context.mounted) {
         context.pushNamed('addNewTrip');
-      } catch (e) {
-        print('ShareIntentManager: Error handling shared file: $e');
       }
+    } catch (e) {
+      print('ShareIntentManager: Error handling shared file: $e');
+    } finally {
+      await ReceiveSharingIntent.instance.reset();
     }
   }
 }

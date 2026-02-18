@@ -1353,7 +1353,7 @@ class _HomeWidgetState extends State<HomeWidget> with TickerProviderStateMixin {
                                                                               final isWithinThreeHoursBeforeDeparture = functions.isDepartureWithinMinutes(upComingTripsItem.departureAt, 180) == true;
                                                                               final gateNumber = upComingTripsItem.gateNumber.trim();
                                                                               final isGateMissing = gateNumber.isEmpty;
-                                                                              if (!showSeatCard && !departurePassed && (!isWithinThreeHoursBeforeDeparture || isGateMissing)) {
+                                                                              if (!showSeatCard && !departurePassed && (!isWithinThreeHoursBeforeDeparture)) {
                                                                                 return Column(
                                                                                   mainAxisSize: MainAxisSize.min,
                                                                                   children: [
