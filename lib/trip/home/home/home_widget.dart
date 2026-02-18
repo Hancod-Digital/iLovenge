@@ -123,26 +123,28 @@ class _HomeWidgetState extends State<HomeWidget> with TickerProviderStateMixin {
       );
       _model.gateNotAdded = await actions.addGateNumber();
       _model.seatNotAdded = await actions.addSeatNumber();
-      _model.beltNotAdded = await actions.addBeltNumber();
+
+      // Preserve upcoming-trip context for gate/seat checks before belt action
+      // potentially switches FFAppState to the latest arrived trip.
+      final gateSeatTripId = FFAppState().currentTripId;
+      final gateSeatDepTime = FFAppState().depTime;
+      final gateSeatArrivalTime = FFAppState().arrivalTime;
 
       // Trigger gate prompt within 120 mins, seat from 60 mins before departure
       // until 60 mins after arrival, belt at arrival, update message 3h after arrival.
       final withinTwoHours =
-          functions.isDepartureWithinMinutes(FFAppState().depTime, 120) == true;
+          functions.isDepartureWithinMinutes(gateSeatDepTime, 120) == true;
       final seatWindowActive = functions.isSeatWindowActive(
-            FFAppState().depTime,
-            FFAppState().arrivalTime,
+            gateSeatDepTime,
+            gateSeatArrivalTime,
             60,
             60,
           ) ==
           true;
-      final arrivalAtOrPast =
-          functions.isArrivalAfterMinutes(FFAppState().arrivalTime, 0) == true;
-      final arrivalPassedThreeHours =
-          functions.isArrivalAfterMinutes(FFAppState().arrivalTime, 180) ==
-              true;
 
-      if (withinTwoHours && _model.gateNotAdded == true) {
+      if (withinTwoHours &&
+          _model.gateNotAdded == true &&
+          gateSeatTripId.isNotEmpty) {
         await showModalBottomSheet(
           isScrollControlled: true,
           backgroundColor: Colors.transparent,
@@ -160,7 +162,7 @@ class _HomeWidgetState extends State<HomeWidget> with TickerProviderStateMixin {
                 child: Padding(
                   padding: MediaQuery.viewInsetsOf(context),
                   child: UpdateGateWidget(
-                    tripId: FFAppState().currentTripId,
+                    tripId: gateSeatTripId,
                     updateState: () async {},
                   ),
                 ),
@@ -170,7 +172,9 @@ class _HomeWidgetState extends State<HomeWidget> with TickerProviderStateMixin {
         ).then((value) => safeSetState(() {}));
       }
 
-      if (seatWindowActive && _model.seatNotAdded == true) {
+      if (seatWindowActive &&
+          _model.seatNotAdded == true &&
+          gateSeatTripId.isNotEmpty) {
         await showModalBottomSheet(
           isScrollControlled: true,
           backgroundColor: Colors.transparent,
@@ -188,7 +192,7 @@ class _HomeWidgetState extends State<HomeWidget> with TickerProviderStateMixin {
                 child: Padding(
                   padding: MediaQuery.viewInsetsOf(context),
                   child: UpdateSeatWidget(
-                    tripId: FFAppState().currentTripId,
+                    tripId: gateSeatTripId,
                     updateState: (seat) async {},
                   ),
                 ),
@@ -197,6 +201,13 @@ class _HomeWidgetState extends State<HomeWidget> with TickerProviderStateMixin {
           },
         ).then((value) => safeSetState(() {}));
       }
+
+      _model.beltNotAdded = await actions.addBeltNumber();
+      final arrivalAtOrPast =
+          functions.isArrivalAfterMinutes(FFAppState().arrivalTime, 0) == true;
+      final arrivalPassedThreeHours =
+          functions.isArrivalAfterMinutes(FFAppState().arrivalTime, 180) ==
+              true;
 
       if (_model.beltNotAdded == true && arrivalAtOrPast) {
         await showModalBottomSheet(
@@ -1251,7 +1262,8 @@ class _HomeWidgetState extends State<HomeWidget> with TickerProviderStateMixin {
                                                                             builder:
                                                                                 (context) {
                                                                               final isWithinThreeHoursBeforeDeparture = functions.isDepartureWithinMinutes(upComingTripsItem.departureAt, 180) == true;
-                                                                              final isGateMissing = upComingTripsItem.gateNumber == null || upComingTripsItem.gateNumber == '';
+                                                                              final gateNumber = upComingTripsItem.gateNumber.trim();
+                                                                              final isGateMissing = gateNumber.isEmpty;
                                                                               if (!showSeatCard && !departurePassed && (!isWithinThreeHoursBeforeDeparture || isGateMissing)) {
                                                                                 return Column(
                                                                                   mainAxisSize: MainAxisSize.min,
