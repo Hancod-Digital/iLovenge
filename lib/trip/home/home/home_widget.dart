@@ -488,6 +488,41 @@ class _HomeWidgetState extends State<HomeWidget> with TickerProviderStateMixin {
                                 ) !=
                                 true)
                             .toList();
+                        DateTime tripDepartureSortKey(TripNowStruct trip) {
+                          DateTime? parsedDeparture =
+                              DateTime.tryParse(trip.departureAt.trim());
+                          if (parsedDeparture == null) {
+                            final departureDate = trip.departureDate.trim();
+                            final departureTime = trip.departureTime.trim();
+                            if (departureDate.isNotEmpty &&
+                                departureTime.isNotEmpty) {
+                              parsedDeparture = DateTime.tryParse(
+                                    '${departureDate}T$departureTime',
+                                  ) ??
+                                  DateTime.tryParse(
+                                    '$departureDate $departureTime',
+                                  );
+                            } else if (departureDate.isNotEmpty) {
+                              parsedDeparture =
+                                  DateTime.tryParse(departureDate);
+                            }
+                          }
+
+                          return (parsedDeparture ??
+                                  DateTime.utc(9999, 12, 31, 23, 59, 59))
+                              .toUtc();
+                        }
+
+                        upComingTrips.sort((a, b) {
+                          final departureCompare =
+                              tripDepartureSortKey(a).compareTo(
+                            tripDepartureSortKey(b),
+                          );
+                          if (departureCompare != 0) {
+                            return departureCompare;
+                          }
+                          return a.id.compareTo(b.id);
+                        });
 
                         final firstTrip = upComingTrips.isNotEmpty
                             ? upComingTrips.first
@@ -1136,9 +1171,52 @@ class _HomeWidgetState extends State<HomeWidget> with TickerProviderStateMixin {
                                             if (upComingTrips.isNotEmpty) {
                                               return Builder(
                                                 builder: (context) {
+                                                  final firstUpcomingTripTagIndex =
+                                                      upComingTrips.indexWhere(
+                                                    (trip) {
+                                                      final tripShowSeatCard =
+                                                          functions
+                                                                  .isSeatWindowActive(
+                                                                trip.departureAt,
+                                                                trip.arrivalAt,
+                                                                60,
+                                                                60,
+                                                              ) ==
+                                                              true;
+                                                      final tripDeparturePassed =
+                                                          functions
+                                                                  .isArrivalAfterMinutes(
+                                                                trip.departureAt,
+                                                                0,
+                                                              ) ==
+                                                              true;
+                                                      final tripIsWithinThreeHoursBeforeDeparture =
+                                                          functions
+                                                                  .isDepartureWithinMinutes(
+                                                                trip.departureAt,
+                                                                180,
+                                                              ) ==
+                                                              true;
+                                                      final tripGateMissing =
+                                                          trip.gateNumber
+                                                              .trim()
+                                                              .isEmpty;
+                                                      return !tripShowSeatCard &&
+                                                          !tripDeparturePassed &&
+                                                          (!tripIsWithinThreeHoursBeforeDeparture ||
+                                                              tripGateMissing);
+                                                    },
+                                                  );
+                                                  final shouldIncreaseUpcomingTripsHeight =
+                                                      firstUpcomingTripTagIndex !=
+                                                          -1;
+
                                                   return Container(
                                                     width: double.infinity,
-                                                    height: 300.0,
+                                                    height:
+                                                        shouldIncreaseUpcomingTripsHeight
+                                                            ? 320.0
+                                                            : 300.0,
                                                     child: Stack(
                                                       children: [
                                                         Padding(
@@ -1301,6 +1379,36 @@ class _HomeWidgetState extends State<HomeWidget> with TickerProviderStateMixin {
                                                                                           child: Column(
                                                                                             mainAxisSize: MainAxisSize.min,
                                                                                             children: [
+                                                                                              if (upComingTripsIndex == firstUpcomingTripTagIndex)
+                                                                                                Align(
+                                                                                                  alignment: AlignmentDirectional(-1.0, 0.0),
+                                                                                                  child: Container(
+                                                                                                    decoration: BoxDecoration(
+                                                                                                      color: FlutterFlowTheme.of(context).primary,
+                                                                                                      borderRadius: BorderRadius.circular(12.0),
+                                                                                                    ),
+                                                                                                    child: Padding(
+                                                                                                      padding: EdgeInsetsDirectional.fromSTEB(12.0, 6.0, 12.0, 6.0),
+                                                                                                      child: Text(
+                                                                                                        'Upcoming Trip',
+                                                                                                        style: FlutterFlowTheme.of(context).bodyMedium.override(
+                                                                                                              font: GoogleFonts.roboto(
+                                                                                                                fontWeight: FontWeight.w600,
+                                                                                                                fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
+                                                                                                              ),
+                                                                                                              color: FlutterFlowTheme.of(context).secondary,
+                                                                                                              fontSize: 12.0,
+                                                                                                              letterSpacing: 0.0,
+                                                                                                              fontWeight: FontWeight.w600,
+                                                                                                              fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
+                                                                                                            ),
+                                                                                                      ),
+                                                                                                    ),
+                                                                                                  ),
+                                                                                                ),
+                                                                                              const SizedBox(
+                                                                                                height: 10,
+                                                                                              ),
                                                                                               Row(
                                                                                                 mainAxisSize: MainAxisSize.max,
                                                                                                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
