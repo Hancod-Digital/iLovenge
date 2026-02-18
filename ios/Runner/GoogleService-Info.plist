@@ -2,10 +2,6 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-	<key>CLIENT_ID</key>
-	<string>245118608879-p27q80bsr8qjogfn5dj1ro1ujrshdblg.apps.googleusercontent.com</string>
-	<key>REVERSED_CLIENT_ID</key>
-	<string>com.googleusercontent.apps.245118608879-p27q80bsr8qjogfn5dj1ro1ujrshdblg</string>
 	<key>ANDROID_CLIENT_ID</key>
 	<string>245118608879-emnajova9mgirmusfnarpjol1vjuqu0f.apps.googleusercontent.com</string>
 	<key>API_KEY</key>
@@ -15,7 +11,7 @@
 	<key>PLIST_VERSION</key>
 	<string>1</string>
 	<key>BUNDLE_ID</key>
-	<string>com.ilovenge.mobile</string>
+	<string>com.ilovenge.app</string>
 	<key>PROJECT_ID</key>
 	<string>ilovenge-edad3</string>
 	<key>STORAGE_BUCKET</key>
@@ -31,6 +27,6 @@
 	<key>IS_SIGNIN_ENABLED</key>
 	<true></true>
 	<key>GOOGLE_APP_ID</key>
-	<string>1:245118608879:ios:1369777a8c7ceacae1421a</string>
+	<string>1:245118608879:ios:3590a94b6e45283ae1421a</string>
 </dict>
 </plist>

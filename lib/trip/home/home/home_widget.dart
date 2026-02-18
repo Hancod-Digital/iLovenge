@@ -64,15 +64,15 @@ class _HomeWidgetState extends State<HomeWidget> with TickerProviderStateMixin {
   //   return Row(
   //     mainAxisSize: MainAxisSize.min,
   //     children: [
-  //       SvgPicture.asset(
-  //         assetPath,
-  //         width: 22.0,
-  //         height: 22.0,
-  //         colorFilter: ColorFilter.mode(
-  //           FlutterFlowTheme.of(context).secondaryText,
-  //           BlendMode.srcIn,
-  //         ),
-  //       ),
+  // SvgPicture.asset(
+  //   assetPath,
+  //   width: 22.0,
+  //   height: 22.0,
+  //   colorFilter: ColorFilter.mode(
+  //     FlutterFlowTheme.of(context).secondaryText,
+  //     BlendMode.srcIn,
+  //   ),
+  // ),
   //       const SizedBox(width: 8.0),
   //       Text(
   //         label,
@@ -123,26 +123,28 @@ class _HomeWidgetState extends State<HomeWidget> with TickerProviderStateMixin {
       );
       _model.gateNotAdded = await actions.addGateNumber();
       _model.seatNotAdded = await actions.addSeatNumber();
-      _model.beltNotAdded = await actions.addBeltNumber();
+
+      // Preserve upcoming-trip context for gate/seat checks before belt action
+      // potentially switches FFAppState to the latest arrived trip.
+      final gateSeatTripId = FFAppState().currentTripId;
+      final gateSeatDepTime = FFAppState().depTime;
+      final gateSeatArrivalTime = FFAppState().arrivalTime;
 
       // Trigger gate prompt within 120 mins, seat from 60 mins before departure
       // until 60 mins after arrival, belt at arrival, update message 3h after arrival.
       final withinTwoHours =
-          functions.isDepartureWithinMinutes(FFAppState().depTime, 120) == true;
+          functions.isDepartureWithinMinutes(gateSeatDepTime, 120) == true;
       final seatWindowActive = functions.isSeatWindowActive(
-            FFAppState().depTime,
-            FFAppState().arrivalTime,
+            gateSeatDepTime,
+            gateSeatArrivalTime,
             60,
             60,
           ) ==
           true;
-      final arrivalAtOrPast =
-          functions.isArrivalAfterMinutes(FFAppState().arrivalTime, 0) == true;
-      final arrivalPassedThreeHours =
-          functions.isArrivalAfterMinutes(FFAppState().arrivalTime, 180) ==
-              true;
 
-      if (withinTwoHours && _model.gateNotAdded == true) {
+      if (withinTwoHours &&
+          _model.gateNotAdded == true &&
+          gateSeatTripId.isNotEmpty) {
         await showModalBottomSheet(
           isScrollControlled: true,
           backgroundColor: Colors.transparent,
@@ -160,7 +162,7 @@ class _HomeWidgetState extends State<HomeWidget> with TickerProviderStateMixin {
                 child: Padding(
                   padding: MediaQuery.viewInsetsOf(context),
                   child: UpdateGateWidget(
-                    tripId: FFAppState().currentTripId,
+                    tripId: gateSeatTripId,
                     updateState: () async {},
                   ),
                 ),
@@ -170,7 +172,9 @@ class _HomeWidgetState extends State<HomeWidget> with TickerProviderStateMixin {
         ).then((value) => safeSetState(() {}));
       }
 
-      if (seatWindowActive && _model.seatNotAdded == true) {
+      if (seatWindowActive &&
+          _model.seatNotAdded == true &&
+          gateSeatTripId.isNotEmpty) {
         await showModalBottomSheet(
           isScrollControlled: true,
           backgroundColor: Colors.transparent,
@@ -188,7 +192,7 @@ class _HomeWidgetState extends State<HomeWidget> with TickerProviderStateMixin {
                 child: Padding(
                   padding: MediaQuery.viewInsetsOf(context),
                   child: UpdateSeatWidget(
-                    tripId: FFAppState().currentTripId,
+                    tripId: gateSeatTripId,
                     updateState: (seat) async {},
                   ),
                 ),
@@ -197,6 +201,13 @@ class _HomeWidgetState extends State<HomeWidget> with TickerProviderStateMixin {
           },
         ).then((value) => safeSetState(() {}));
       }
+
+      _model.beltNotAdded = await actions.addBeltNumber();
+      final arrivalAtOrPast =
+          functions.isArrivalAfterMinutes(FFAppState().arrivalTime, 0) == true;
+      final arrivalPassedThreeHours =
+          functions.isArrivalAfterMinutes(FFAppState().arrivalTime, 180) ==
+              true;
 
       if (_model.beltNotAdded == true && arrivalAtOrPast) {
         await showModalBottomSheet(
@@ -477,6 +488,41 @@ class _HomeWidgetState extends State<HomeWidget> with TickerProviderStateMixin {
                                 ) !=
                                 true)
                             .toList();
+                        DateTime tripDepartureSortKey(TripNowStruct trip) {
+                          DateTime? parsedDeparture =
+                              DateTime.tryParse(trip.departureAt.trim());
+                          if (parsedDeparture == null) {
+                            final departureDate = trip.departureDate.trim();
+                            final departureTime = trip.departureTime.trim();
+                            if (departureDate.isNotEmpty &&
+                                departureTime.isNotEmpty) {
+                              parsedDeparture = DateTime.tryParse(
+                                    '${departureDate}T$departureTime',
+                                  ) ??
+                                  DateTime.tryParse(
+                                    '$departureDate $departureTime',
+                                  );
+                            } else if (departureDate.isNotEmpty) {
+                              parsedDeparture =
+                                  DateTime.tryParse(departureDate);
+                            }
+                          }
+
+                          return (parsedDeparture ??
+                                  DateTime.utc(9999, 12, 31, 23, 59, 59))
+                              .toUtc();
+                        }
+
+                        upComingTrips.sort((a, b) {
+                          final departureCompare =
+                              tripDepartureSortKey(a).compareTo(
+                            tripDepartureSortKey(b),
+                          );
+                          if (departureCompare != 0) {
+                            return departureCompare;
+                          }
+                          return a.id.compareTo(b.id);
+                        });
 
                         final firstTrip = upComingTrips.isNotEmpty
                             ? upComingTrips.first
@@ -490,6 +536,17 @@ class _HomeWidgetState extends State<HomeWidget> with TickerProviderStateMixin {
                                 true &&
                             (firstTrip.departureTerminal == null ||
                                 firstTrip.departureTerminal == '');
+
+                        String formatWith7CharBreaks(String text) {
+                          final buffer = StringBuffer();
+                          for (int i = 0; i < text.length; i++) {
+                            if (i != 0 && i % 10 == 0) {
+                              buffer.write('\n');
+                            }
+                            buffer.write(text[i]);
+                          }
+                          return buffer.toString();
+                        }
 
                         return Container(
                           height: MediaQuery.sizeOf(context).height,
@@ -1114,9 +1171,52 @@ class _HomeWidgetState extends State<HomeWidget> with TickerProviderStateMixin {
                                             if (upComingTrips.isNotEmpty) {
                                               return Builder(
                                                 builder: (context) {
+                                                  final firstUpcomingTripTagIndex =
+                                                      upComingTrips.indexWhere(
+                                                    (trip) {
+                                                      final tripShowSeatCard =
+                                                          functions
+                                                                  .isSeatWindowActive(
+                                                                trip.departureAt,
+                                                                trip.arrivalAt,
+                                                                60,
+                                                                60,
+                                                              ) ==
+                                                              true;
+                                                      final tripDeparturePassed =
+                                                          functions
+                                                                  .isArrivalAfterMinutes(
+                                                                trip.departureAt,
+                                                                0,
+                                                              ) ==
+                                                              true;
+                                                      final tripIsWithinThreeHoursBeforeDeparture =
+                                                          functions
+                                                                  .isDepartureWithinMinutes(
+                                                                trip.departureAt,
+                                                                180,
+                                                              ) ==
+                                                              true;
+                                                      final tripGateMissing =
+                                                          trip.gateNumber
+                                                              .trim()
+                                                              .isEmpty;
+                                                      return !tripShowSeatCard &&
+                                                          !tripDeparturePassed &&
+                                                          (!tripIsWithinThreeHoursBeforeDeparture ||
+                                                              tripGateMissing);
+                                                    },
+                                                  );
+                                                  final shouldIncreaseUpcomingTripsHeight =
+                                                      firstUpcomingTripTagIndex !=
+                                                          -1;
+
                                                   return Container(
                                                     width: double.infinity,
-                                                    height: 289.0,
+                                                    height:
+                                                        shouldIncreaseUpcomingTripsHeight
+                                                            ? 320.0
+                                                            : 300.0,
                                                     child: Stack(
                                                       children: [
                                                         Padding(
@@ -1251,7 +1351,8 @@ class _HomeWidgetState extends State<HomeWidget> with TickerProviderStateMixin {
                                                                             builder:
                                                                                 (context) {
                                                                               final isWithinThreeHoursBeforeDeparture = functions.isDepartureWithinMinutes(upComingTripsItem.departureAt, 180) == true;
-                                                                              final isGateMissing = upComingTripsItem.gateNumber == null || upComingTripsItem.gateNumber == '';
+                                                                              final gateNumber = upComingTripsItem.gateNumber.trim();
+                                                                              final isGateMissing = gateNumber.isEmpty;
                                                                               if (!showSeatCard && !departurePassed && (!isWithinThreeHoursBeforeDeparture || isGateMissing)) {
                                                                                 return Column(
                                                                                   mainAxisSize: MainAxisSize.min,
@@ -1278,6 +1379,36 @@ class _HomeWidgetState extends State<HomeWidget> with TickerProviderStateMixin {
                                                                                           child: Column(
                                                                                             mainAxisSize: MainAxisSize.min,
                                                                                             children: [
+                                                                                              if (upComingTripsIndex == firstUpcomingTripTagIndex)
+                                                                                                Align(
+                                                                                                  alignment: AlignmentDirectional(-1.0, 0.0),
+                                                                                                  child: Container(
+                                                                                                    decoration: BoxDecoration(
+                                                                                                      color: FlutterFlowTheme.of(context).primary,
+                                                                                                      borderRadius: BorderRadius.circular(12.0),
+                                                                                                    ),
+                                                                                                    child: Padding(
+                                                                                                      padding: EdgeInsetsDirectional.fromSTEB(12.0, 6.0, 12.0, 6.0),
+                                                                                                      child: Text(
+                                                                                                        'Upcoming Trip',
+                                                                                                        style: FlutterFlowTheme.of(context).bodyMedium.override(
+                                                                                                              font: GoogleFonts.roboto(
+                                                                                                                fontWeight: FontWeight.w600,
+                                                                                                                fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
+                                                                                                              ),
+                                                                                                              color: FlutterFlowTheme.of(context).secondary,
+                                                                                                              fontSize: 12.0,
+                                                                                                              letterSpacing: 0.0,
+                                                                                                              fontWeight: FontWeight.w600,
+                                                                                                              fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
+                                                                                                            ),
+                                                                                                      ),
+                                                                                                    ),
+                                                                                                  ),
+                                                                                                ),
+                                                                                              const SizedBox(
+                                                                                                height: 10,
+                                                                                              ),
                                                                                               Row(
                                                                                                 mainAxisSize: MainAxisSize.max,
                                                                                                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -2067,6 +2198,9 @@ class _HomeWidgetState extends State<HomeWidget> with TickerProviderStateMixin {
                                                                                                         Column(
                                                                                                           crossAxisAlignment: CrossAxisAlignment.start,
                                                                                                           children: [
+                                                                                                            const Divider(
+                                                                                                              thickness: 1,
+                                                                                                            ),
                                                                                                             Text(
                                                                                                               'Terminal Name',
                                                                                                               style: FlutterFlowTheme.of(context).bodyMedium.override(
@@ -2080,21 +2214,39 @@ class _HomeWidgetState extends State<HomeWidget> with TickerProviderStateMixin {
                                                                                                                     fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
                                                                                                                   ),
                                                                                                             ),
-                                                                                                            Text(
-                                                                                                              valueOrDefault<String>(
-                                                                                                                upComingTripsItem.departureTerminal,
-                                                                                                                'N/A',
-                                                                                                              ),
-                                                                                                              style: FlutterFlowTheme.of(context).bodyMedium.override(
-                                                                                                                    font: GoogleFonts.roboto(
-                                                                                                                      fontWeight: FontWeight.w900,
-                                                                                                                      fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
+                                                                                                            Row(
+                                                                                                              children: [
+                                                                                                                Text(
+                                                                                                                  formatWith7CharBreaks(
+                                                                                                                    valueOrDefault<String>(
+                                                                                                                      upComingTripsItem.departureTerminal,
+                                                                                                                      'N/A',
                                                                                                                     ),
-                                                                                                                    fontSize: 45.0,
-                                                                                                                    letterSpacing: 0.0,
-                                                                                                                    fontWeight: FontWeight.w900,
-                                                                                                                    fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
                                                                                                                   ),
+                                                                                                                  style: FlutterFlowTheme.of(context).bodyMedium.override(
+                                                                                                                        font: GoogleFonts.roboto(
+                                                                                                                          fontWeight: FontWeight.w900,
+                                                                                                                          fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
+                                                                                                                        ),
+                                                                                                                        fontSize: 38.0,
+                                                                                                                        letterSpacing: 0.0,
+                                                                                                                        fontWeight: FontWeight.w900,
+                                                                                                                        fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
+                                                                                                                      ),
+                                                                                                                ),
+                                                                                                                const SizedBox(
+                                                                                                                  width: 10,
+                                                                                                                ),
+                                                                                                                SvgPicture.asset(
+                                                                                                                  'assets/images/terminal.svg',
+                                                                                                                  width: 40.0,
+                                                                                                                  height: 40.0,
+                                                                                                                  colorFilter: ColorFilter.mode(
+                                                                                                                    Colors.grey,
+                                                                                                                    BlendMode.srcIn,
+                                                                                                                  ),
+                                                                                                                ),
+                                                                                                              ],
                                                                                                             ),
                                                                                                             const Row(
                                                                                                               mainAxisSize: MainAxisSize.max,
@@ -2128,6 +2280,9 @@ class _HomeWidgetState extends State<HomeWidget> with TickerProviderStateMixin {
                                                                                                           child: Column(
                                                                                                             crossAxisAlignment: CrossAxisAlignment.start,
                                                                                                             children: [
+                                                                                                              const Divider(
+                                                                                                                thickness: 1,
+                                                                                                              ),
                                                                                                               Text(
                                                                                                                 'Gate Number',
                                                                                                                 style: FlutterFlowTheme.of(context).bodyMedium.override(
@@ -2141,18 +2296,34 @@ class _HomeWidgetState extends State<HomeWidget> with TickerProviderStateMixin {
                                                                                                                       fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
                                                                                                                     ),
                                                                                                               ),
-                                                                                                              Text(
-                                                                                                                upComingTripsItem.gateNumber,
-                                                                                                                style: FlutterFlowTheme.of(context).bodyMedium.override(
-                                                                                                                      font: GoogleFonts.roboto(
-                                                                                                                        fontWeight: FontWeight.w900,
-                                                                                                                        fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
-                                                                                                                      ),
-                                                                                                                      fontSize: 45.0,
-                                                                                                                      letterSpacing: 0.0,
-                                                                                                                      fontWeight: FontWeight.w900,
-                                                                                                                      fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
+                                                                                                              Row(
+                                                                                                                children: [
+                                                                                                                  Text(
+                                                                                                                    upComingTripsItem.gateNumber,
+                                                                                                                    style: FlutterFlowTheme.of(context).bodyMedium.override(
+                                                                                                                          font: GoogleFonts.roboto(
+                                                                                                                            fontWeight: FontWeight.w900,
+                                                                                                                            fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
+                                                                                                                          ),
+                                                                                                                          fontSize: 45.0,
+                                                                                                                          letterSpacing: 0.0,
+                                                                                                                          fontWeight: FontWeight.w900,
+                                                                                                                          fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
+                                                                                                                        ),
+                                                                                                                  ),
+                                                                                                                  const SizedBox(
+                                                                                                                    width: 10,
+                                                                                                                  ),
+                                                                                                                  SvgPicture.asset(
+                                                                                                                    'assets/images/gate.svg',
+                                                                                                                    width: 40.0,
+                                                                                                                    height: 40.0,
+                                                                                                                    colorFilter: ColorFilter.mode(
+                                                                                                                      Colors.grey,
+                                                                                                                      BlendMode.srcIn,
                                                                                                                     ),
+                                                                                                                  ),
+                                                                                                                ],
                                                                                                               ),
                                                                                                             ],
                                                                                                           ),
@@ -2163,6 +2334,9 @@ class _HomeWidgetState extends State<HomeWidget> with TickerProviderStateMixin {
                                                                                                           child: Column(
                                                                                                             crossAxisAlignment: CrossAxisAlignment.start,
                                                                                                             children: [
+                                                                                                              const Divider(
+                                                                                                                thickness: 1,
+                                                                                                              ),
                                                                                                               Text(
                                                                                                                 'Seat Number',
                                                                                                                 style: FlutterFlowTheme.of(context).bodyMedium.override(
@@ -2176,18 +2350,30 @@ class _HomeWidgetState extends State<HomeWidget> with TickerProviderStateMixin {
                                                                                                                       fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
                                                                                                                     ),
                                                                                                               ),
-                                                                                                              Text(
-                                                                                                                upComingTripsItem.seat,
-                                                                                                                style: FlutterFlowTheme.of(context).bodyMedium.override(
-                                                                                                                      font: GoogleFonts.roboto(
-                                                                                                                        fontWeight: FontWeight.w600,
-                                                                                                                        fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
-                                                                                                                      ),
-                                                                                                                      fontSize: 45.0,
-                                                                                                                      letterSpacing: 0.0,
-                                                                                                                      fontWeight: FontWeight.w600,
-                                                                                                                      fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
-                                                                                                                    ),
+                                                                                                              Row(
+                                                                                                                children: [
+                                                                                                                  Text(
+                                                                                                                    upComingTripsItem.seat,
+                                                                                                                    style: FlutterFlowTheme.of(context).bodyMedium.override(
+                                                                                                                          font: GoogleFonts.roboto(
+                                                                                                                            fontWeight: FontWeight.w600,
+                                                                                                                            fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
+                                                                                                                          ),
+                                                                                                                          fontSize: 45.0,
+                                                                                                                          letterSpacing: 0.0,
+                                                                                                                          fontWeight: FontWeight.w600,
+                                                                                                                          fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
+                                                                                                                        ),
+                                                                                                                  ),
+                                                                                                                  const SizedBox(
+                                                                                                                    width: 10,
+                                                                                                                  ),
+                                                                                                                  SvgPicture.asset(
+                                                                                                                    'assets/images/seat.svg',
+                                                                                                                    width: 40.0,
+                                                                                                                    height: 40.0,
+                                                                                                                  ),
+                                                                                                                ],
                                                                                                               ),
                                                                                                             ],
                                                                                                           ),
@@ -2198,6 +2384,9 @@ class _HomeWidgetState extends State<HomeWidget> with TickerProviderStateMixin {
                                                                                                           child: Column(
                                                                                                             crossAxisAlignment: CrossAxisAlignment.start,
                                                                                                             children: [
+                                                                                                              const Divider(
+                                                                                                                thickness: 1,
+                                                                                                              ),
                                                                                                               Text(
                                                                                                                 'Belt Number',
                                                                                                                 style: FlutterFlowTheme.of(context).bodyMedium.override(
@@ -2211,18 +2400,30 @@ class _HomeWidgetState extends State<HomeWidget> with TickerProviderStateMixin {
                                                                                                                       fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
                                                                                                                     ),
                                                                                                               ),
-                                                                                                              Text(
-                                                                                                                upComingTripsItem.belt,
-                                                                                                                style: FlutterFlowTheme.of(context).bodyMedium.override(
-                                                                                                                      font: GoogleFonts.roboto(
-                                                                                                                        fontWeight: FontWeight.w900,
-                                                                                                                        fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
-                                                                                                                      ),
-                                                                                                                      fontSize: 45.0,
-                                                                                                                      letterSpacing: 0.0,
-                                                                                                                      fontWeight: FontWeight.w900,
-                                                                                                                      fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
-                                                                                                                    ),
+                                                                                                              Row(
+                                                                                                                children: [
+                                                                                                                  Text(
+                                                                                                                    upComingTripsItem.belt,
+                                                                                                                    style: FlutterFlowTheme.of(context).bodyMedium.override(
+                                                                                                                          font: GoogleFonts.roboto(
+                                                                                                                            fontWeight: FontWeight.w900,
+                                                                                                                            fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
+                                                                                                                          ),
+                                                                                                                          fontSize: 45.0,
+                                                                                                                          letterSpacing: 0.0,
+                                                                                                                          fontWeight: FontWeight.w900,
+                                                                                                                          fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
+                                                                                                                        ),
+                                                                                                                  ),
+                                                                                                                  const SizedBox(
+                                                                                                                    width: 10,
+                                                                                                                  ),
+                                                                                                                  SvgPicture.asset(
+                                                                                                                    'assets/images/belt.svg',
+                                                                                                                    width: 40.0,
+                                                                                                                    height: 40.0,
+                                                                                                                  ),
+                                                                                                                ],
                                                                                                               ),
                                                                                                             ],
                                                                                                           ),

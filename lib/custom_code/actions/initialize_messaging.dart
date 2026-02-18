@@ -229,7 +229,11 @@ Future<void> _showLocalNotification(RemoteMessage message) async {
       importance: Importance.high,
       priority: Priority.high,
     ),
-    iOS: const DarwinNotificationDetails(),
+    iOS: const DarwinNotificationDetails(
+      presentAlert: true,
+      presentBadge: true,
+      presentSound: true,
+    ),
   );
 
   await _localNotifications.show(
