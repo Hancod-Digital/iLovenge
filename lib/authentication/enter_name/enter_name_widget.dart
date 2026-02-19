@@ -113,7 +113,7 @@ class _EnterNameWidgetState extends State<EnterNameWidget>
                               padding: EdgeInsetsDirectional.fromSTEB(
                                   0.0, 20.0, 0.0, 0.0),
                               child: Text(
-                                'What Should we Call You ?',
+                                'What Should We Call You ?',
                                 textAlign: TextAlign.start,
                                 style: FlutterFlowTheme.of(context)
                                     .bodyMedium
