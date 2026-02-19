@@ -10,6 +10,8 @@ import 'package:flutter/material.dart';
 // Begin custom action code
 // DO NOT REMOVE OR MODIFY THE CODE ABOVE!
 
+import 'dart:async';
+
 import 'package:i_l_o_v_enge/trip/home/home/home_widget.dart';
 
 import 'package:i_l_o_v_enge/profile/notification/notification_widget.dart';
@@ -26,12 +28,16 @@ final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 // Singletons for local notification handling
 final FlutterLocalNotificationsPlugin _localNotifications =
     FlutterLocalNotificationsPlugin();
-final AndroidNotificationChannel _androidChannel = AndroidNotificationChannel(
+const AndroidNotificationChannel _androidChannel = AndroidNotificationChannel(
   'high_importance_channel',
   'High Importance Notifications',
   description: 'Used for important FCM notifications.',
   importance: Importance.high,
 );
+const int _singleActiveNotificationId = 1001;
+bool _messagingInitialized = false;
+StreamSubscription<RemoteMessage>? _onMessageSubscription;
+StreamSubscription<RemoteMessage>? _onMessageOpenedAppSubscription;
 
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(
@@ -41,11 +47,23 @@ Future<void> _firebaseMessagingBackgroundHandler(
   debugPrint('Handling a background message ${message.messageId}');
   debugPrint(message.data.toString());
 
-  // Show a local notification while app is in background/terminated.
-  // We keep it minimal (no navigation) because navigator isn't available here.
-  final notification = message.notification;
-  final title = notification?.title ?? message.data['title'] ?? 'New update';
-  final body = notification?.body ?? message.data['body'] ?? '';
+  // On Android, notification payload messages are already shown by the system.
+  // Showing another local notification here causes duplicates.
+  if (message.notification != null) {
+    debugPrint(
+      'Skipping background local notification: notification payload is already handled by Android.',
+    );
+    return;
+  }
+
+  final title = (message.data['title'] as String?)?.trim();
+  final body = (message.data['body'] as String?)?.trim();
+  if ((title == null || title.isEmpty) && (body == null || body.isEmpty)) {
+    debugPrint(
+      'Skipping background local notification: no title/body in data payload.',
+    );
+    return;
+  }
 
   // Make sure the Android channel exists before showing.
   await _localNotifications
@@ -58,23 +76,31 @@ Future<void> _firebaseMessagingBackgroundHandler(
       _androidChannel.id,
       _androidChannel.name,
       channelDescription: _androidChannel.description,
-      icon: notification?.android?.smallIcon ?? '@mipmap/ic_launcher',
+      icon: '@mipmap/ic_launcher',
       importance: Importance.high,
       priority: Priority.high,
+      tag: 'primary_message',
+      onlyAlertOnce: true,
     ),
     iOS: const DarwinNotificationDetails(),
   );
 
   await _localNotifications.show(
-    notification.hashCode,
-    title,
-    body,
+    _singleActiveNotificationId,
+    title ?? 'New update',
+    body ?? '',
     details,
     payload: message.data['route'] ?? '',
   );
 }
 
 Future initializeMessaging() async {
+  if (_messagingInitialized) {
+    debugPrint('initializeMessaging called more than once; skipping.');
+    return;
+  }
+  _messagingInitialized = true;
+
   // Ensure notifications can surface while app is in foreground (iOS/macOS).
   await FirebaseMessaging.instance.setForegroundNotificationPresentationOptions(
     alert: true,
@@ -163,13 +189,15 @@ Future initializeMessaging() async {
   //     ],
   //   );
   // });
-  FirebaseMessaging.onMessage.listen((RemoteMessage message) async {
+  await _onMessageSubscription?.cancel();
+  _onMessageSubscription = FirebaseMessaging.onMessage.listen((
+    RemoteMessage message,
+  ) async {
     debugPrint('Message data: ${message.data}');
     debugPrint('Message notification: ${message.notification?.title}');
     debugPrint('Message notification body: ${message.notification?.body}');
 
-    // Show a local notification for foreground messages on Android
-    if (message.notification != null) {
+    if (_hasDisplayableContent(message)) {
       await _showLocalNotification(message);
     }
 
@@ -198,12 +226,25 @@ Future initializeMessaging() async {
     }
   });
 
-  FirebaseMessaging.onMessageOpenedApp.listen((message) {
-    debugPrint("🚨 Message: $message");
-    _handleMessageNavigation(message);
-  });
+  await _onMessageOpenedAppSubscription?.cancel();
+  _onMessageOpenedAppSubscription = FirebaseMessaging.onMessageOpenedApp.listen(
+    (message) {
+      debugPrint("🚨 Message: $message");
+      _handleMessageNavigation(message);
+    },
+  );
 
   FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
+}
+
+bool _hasDisplayableContent(RemoteMessage message) {
+  if (message.notification != null) {
+    return true;
+  }
+
+  final title = (message.data['title'] as String?)?.trim();
+  final body = (message.data['body'] as String?)?.trim();
+  return (title?.isNotEmpty ?? false) || (body?.isNotEmpty ?? false);
 }
 
 Future<void> _ensureAndroidChannel() async {
@@ -219,6 +260,8 @@ Future<void> _ensureAndroidChannel() async {
 Future<void> _showLocalNotification(RemoteMessage message) async {
   final notification = message.notification;
   final android = message.notification?.android;
+  final title = notification?.title ?? (message.data['title'] as String?);
+  final body = notification?.body ?? (message.data['body'] as String?);
 
   final details = NotificationDetails(
     android: AndroidNotificationDetails(
@@ -228,6 +271,8 @@ Future<void> _showLocalNotification(RemoteMessage message) async {
       icon: android?.smallIcon ?? '@mipmap/ic_launcher',
       importance: Importance.high,
       priority: Priority.high,
+      tag: 'primary_message',
+      onlyAlertOnce: true,
     ),
     iOS: const DarwinNotificationDetails(
       presentAlert: true,
@@ -237,9 +282,9 @@ Future<void> _showLocalNotification(RemoteMessage message) async {
   );
 
   await _localNotifications.show(
-    notification.hashCode,
-    notification?.title,
-    notification?.body,
+    _singleActiveNotificationId,
+    title ?? 'New update',
+    body ?? '',
     details,
     payload: message.data['route'] ?? '',
   );
