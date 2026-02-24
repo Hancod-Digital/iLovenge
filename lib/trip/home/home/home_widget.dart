@@ -49,12 +49,143 @@ class HomeWidget extends StatefulWidget {
   State<HomeWidget> createState() => _HomeWidgetState();
 }
 
-class _HomeWidgetState extends State<HomeWidget> with TickerProviderStateMixin {
+class _HomeWidgetState extends State<HomeWidget>
+    with TickerProviderStateMixin, WidgetsBindingObserver {
   late HomeModel _model;
 
   final scaffoldKey = GlobalKey<ScaffoldState>();
 
   final animationsMap = <String, AnimationInfo>{};
+  bool _isGateSeatPromptFlowRunning = false;
+  bool _hasPendingGateSeatPromptCheck = false;
+  bool _initialHomeLoadCompleted = false;
+  bool _shouldRunPromptCheckOnVisible = false;
+  DateTime? _lastGateSeatPromptCheckAt;
+
+  Future<void> _checkAndShowGateSeatPrompts() async {
+    if (!mounted || _isGateSeatPromptFlowRunning) {
+      return;
+    }
+    _isGateSeatPromptFlowRunning = true;
+    _lastGateSeatPromptCheckAt = DateTime.now();
+    try {
+      _model.gateNotAdded = await actions.addGateNumber();
+      _model.seatNotAdded = await actions.addSeatNumber();
+
+      // Preserve upcoming-trip context for gate/seat checks before belt action
+      // potentially switches FFAppState to the latest arrived trip.
+      final gateSeatTripId = FFAppState().currentTripId;
+      final gateSeatDepTime = FFAppState().depTime;
+      final gateSeatArrivalTime = FFAppState().arrivalTime;
+
+      // Trigger gate prompt within 120 mins, seat from 61 mins before departure
+      // until 60 mins after arrival.
+      final withinTwoHours =
+          functions.isDepartureWithinMinutes(gateSeatDepTime, 120) == true;
+      final seatWindowActive = functions.isSeatWindowActive(
+            gateSeatDepTime,
+            gateSeatArrivalTime,
+            61,
+            60,
+          ) ==
+          true;
+
+      if (withinTwoHours &&
+          _model.gateNotAdded == true &&
+          gateSeatTripId.isNotEmpty) {
+        await showModalBottomSheet(
+          isScrollControlled: true,
+          backgroundColor: Colors.transparent,
+          isDismissible: false,
+          enableDrag: false,
+          useSafeArea: true,
+          context: context,
+          builder: (context) {
+            return WebViewAware(
+              child: GestureDetector(
+                onTap: () {
+                  FocusScope.of(context).unfocus();
+                  FocusManager.instance.primaryFocus?.unfocus();
+                },
+                child: Padding(
+                  padding: MediaQuery.viewInsetsOf(context),
+                  child: UpdateGateWidget(
+                    tripId: gateSeatTripId,
+                    updateState: () async {},
+                  ),
+                ),
+              ),
+            );
+          },
+        ).then((value) => safeSetState(() {}));
+      }
+
+      if (!mounted) {
+        return;
+      }
+
+      if (seatWindowActive &&
+          _model.seatNotAdded == true &&
+          gateSeatTripId.isNotEmpty) {
+        await showModalBottomSheet(
+          isScrollControlled: true,
+          backgroundColor: Colors.transparent,
+          isDismissible: false,
+          enableDrag: false,
+          useSafeArea: true,
+          context: context,
+          builder: (context) {
+            return WebViewAware(
+              child: GestureDetector(
+                onTap: () {
+                  FocusScope.of(context).unfocus();
+                  FocusManager.instance.primaryFocus?.unfocus();
+                },
+                child: Padding(
+                  padding: MediaQuery.viewInsetsOf(context),
+                  child: UpdateSeatWidget(
+                    tripId: gateSeatTripId,
+                    updateState: (seat) async {},
+                  ),
+                ),
+              ),
+            );
+          },
+        ).then((value) => safeSetState(() {}));
+      }
+    } finally {
+      _isGateSeatPromptFlowRunning = false;
+    }
+  }
+
+  void _scheduleGateSeatPromptCheck({
+    bool force = false,
+  }) {
+    if (!mounted || _hasPendingGateSeatPromptCheck) {
+      return;
+    }
+    _hasPendingGateSeatPromptCheck = true;
+    SchedulerBinding.instance.addPostFrameCallback((_) async {
+      _hasPendingGateSeatPromptCheck = false;
+      if (!mounted) {
+        return;
+      }
+      final route = ModalRoute.of(context);
+      if (route?.isCurrent != true) {
+        return;
+      }
+
+      final lastRunAt = _lastGateSeatPromptCheckAt;
+      final recentlyChecked = lastRunAt != null &&
+          DateTime.now().difference(lastRunAt) < const Duration(seconds: 10);
+      if (!force && recentlyChecked) {
+        return;
+      }
+
+      await _checkAndShowGateSeatPrompts();
+      _shouldRunPromptCheckOnVisible = false;
+    });
+  }
 
   //  Widget _labelWithIcon(
   //   BuildContext context,
@@ -96,150 +227,107 @@ class _HomeWidgetState extends State<HomeWidget> with TickerProviderStateMixin {
   void initState() {
     super.initState();
     _model = createModel(context, () => HomeModel());
+    WidgetsBinding.instance.addObserver(this);
 
     // On page load action.
     SchedulerBinding.instance.addPostFrameCallback((_) async {
-      safeSetState(() =>
-          _model.addYourFirstTripController = createPageWalkthrough(context));
-      _model.addYourFirstTripController?.show(context: context);
-      _model.user = await UsersTable().queryRows(
-        queryFn: (q) => q.eqOrNull(
-          'id',
-          currentUserUid,
-        ),
-      );
-      if (!(_model.user?.firstOrNull?.name != null &&
-          _model.user?.firstOrNull?.name != '')) {
-        context.pushNamed(EnterNameWidget.routeName);
-      }
-      await UsersTable().update(
-        data: {
-          'fcm_token': FFAppState().fcmToken,
-        },
-        matchingRows: (rows) => rows.eqOrNull(
-          'id',
-          currentUserUid,
-        ),
-      );
-      _model.gateNotAdded = await actions.addGateNumber();
-      _model.seatNotAdded = await actions.addSeatNumber();
+      try {
+        safeSetState(() =>
+            _model.addYourFirstTripController = createPageWalkthrough(context));
+        _model.addYourFirstTripController?.show(context: context);
+        _model.user = await UsersTable().queryRows(
+          queryFn: (q) => q.eqOrNull(
+            'id',
+            currentUserUid,
+          ),
+        );
+        if (!(_model.user?.firstOrNull?.name != null &&
+            _model.user?.firstOrNull?.name != '')) {
+          context.pushNamed(EnterNameWidget.routeName);
+        }
+        await UsersTable().update(
+          data: {
+            'fcm_token': FFAppState().fcmToken,
+          },
+          matchingRows: (rows) => rows.eqOrNull(
+            'id',
+            currentUserUid,
+          ),
+        );
+        await _checkAndShowGateSeatPrompts();
 
-      // Preserve upcoming-trip context for gate/seat checks before belt action
-      // potentially switches FFAppState to the latest arrived trip.
-      final gateSeatTripId = FFAppState().currentTripId;
-      final gateSeatDepTime = FFAppState().depTime;
-      final gateSeatArrivalTime = FFAppState().arrivalTime;
+        _model.beltNotAdded = await actions.addBeltNumber();
+        final arrivalAtOrPast =
+            functions.isArrivalAfterMinutes(FFAppState().arrivalTime, 0) ==
+                true;
+        final arrivalPassedThreeHours =
+            functions.isArrivalAfterMinutes(FFAppState().arrivalTime, 180) ==
+                true;
 
-      // Trigger gate prompt within 120 mins, seat from 60 mins before departure
-      // until 60 mins after arrival, belt at arrival, update message 3h after arrival.
-      final withinTwoHours =
-          functions.isDepartureWithinMinutes(gateSeatDepTime, 120) == true;
-      final seatWindowActive = functions.isSeatWindowActive(
-            gateSeatDepTime,
-            gateSeatArrivalTime,
-            60,
-            60,
-          ) ==
-          true;
-
-      if (withinTwoHours &&
-          _model.gateNotAdded == true &&
-          gateSeatTripId.isNotEmpty) {
-        await showModalBottomSheet(
-          isScrollControlled: true,
-          backgroundColor: Colors.transparent,
-          isDismissible: false,
-          enableDrag: false,
-          useSafeArea: true,
-          context: context,
-          builder: (context) {
-            return WebViewAware(
-              child: GestureDetector(
-                onTap: () {
-                  FocusScope.of(context).unfocus();
-                  FocusManager.instance.primaryFocus?.unfocus();
-                },
-                child: Padding(
-                  padding: MediaQuery.viewInsetsOf(context),
-                  child: UpdateGateWidget(
-                    tripId: gateSeatTripId,
-                    updateState: () async {},
+        if (_model.beltNotAdded == true && arrivalAtOrPast) {
+          await showModalBottomSheet(
+            isScrollControlled: true,
+            backgroundColor: Colors.transparent,
+            isDismissible: false,
+            enableDrag: false,
+            useSafeArea: true,
+            context: context,
+            builder: (context) {
+              return WebViewAware(
+                child: GestureDetector(
+                  onTap: () {
+                    FocusScope.of(context).unfocus();
+                    FocusManager.instance.primaryFocus?.unfocus();
+                  },
+                  child: Padding(
+                    padding: MediaQuery.viewInsetsOf(context),
+                    child: UpdateBeltWidget(
+                      tripId: FFAppState().currentTripId,
+                      updateState: (belt) async {},
+                    ),
                   ),
                 ),
-              ),
-            );
-          },
-        ).then((value) => safeSetState(() {}));
-      }
+              );
+            },
+          ).then((value) => safeSetState(() {}));
+        }
 
-      if (seatWindowActive &&
-          _model.seatNotAdded == true &&
-          gateSeatTripId.isNotEmpty) {
-        await showModalBottomSheet(
-          isScrollControlled: true,
-          backgroundColor: Colors.transparent,
-          isDismissible: false,
-          enableDrag: false,
-          useSafeArea: true,
-          context: context,
-          builder: (context) {
-            return WebViewAware(
-              child: GestureDetector(
-                onTap: () {
-                  FocusScope.of(context).unfocus();
-                  FocusManager.instance.primaryFocus?.unfocus();
-                },
-                child: Padding(
-                  padding: MediaQuery.viewInsetsOf(context),
-                  child: UpdateSeatWidget(
-                    tripId: gateSeatTripId,
-                    updateState: (seat) async {},
+        FFAppState().update(() {});
+        if (arrivalPassedThreeHours) {
+          if (FFAppState().tripStatus == 'new') {
+            await showModalBottomSheet(
+              isScrollControlled: true,
+              backgroundColor: Colors.transparent,
+              isDismissible: false,
+              enableDrag: false,
+              useSafeArea: true,
+              context: context,
+              builder: (context) {
+                return WebViewAware(
+                  child: GestureDetector(
+                    onTap: () {
+                      FocusScope.of(context).unfocus();
+                      FocusManager.instance.primaryFocus?.unfocus();
+                    },
+                    child: Padding(
+                      padding: MediaQuery.viewInsetsOf(context),
+                      child: UpdateMessageWidget(
+                        tripId: FFAppState().currentTripId,
+                      ),
+                    ),
                   ),
-                ),
-              ),
-            );
-          },
-        ).then((value) => safeSetState(() {}));
-      }
+                );
+              },
+            ).then((value) => safeSetState(() {}));
+          }
+        }
 
-      _model.beltNotAdded = await actions.addBeltNumber();
-      final arrivalAtOrPast =
-          functions.isArrivalAfterMinutes(FFAppState().arrivalTime, 0) == true;
-      final arrivalPassedThreeHours =
-          functions.isArrivalAfterMinutes(FFAppState().arrivalTime, 180) ==
-              true;
+        final arrivalPassedThreeAndHalfHours =
+            functions.isArrivalAfterMinutes(FFAppState().arrivalTime, 210) ==
+                true;
 
-      if (_model.beltNotAdded == true && arrivalAtOrPast) {
-        await showModalBottomSheet(
-          isScrollControlled: true,
-          backgroundColor: Colors.transparent,
-          isDismissible: false,
-          enableDrag: false,
-          useSafeArea: true,
-          context: context,
-          builder: (context) {
-            return WebViewAware(
-              child: GestureDetector(
-                onTap: () {
-                  FocusScope.of(context).unfocus();
-                  FocusManager.instance.primaryFocus?.unfocus();
-                },
-                child: Padding(
-                  padding: MediaQuery.viewInsetsOf(context),
-                  child: UpdateBeltWidget(
-                    tripId: FFAppState().currentTripId,
-                    updateState: (belt) async {},
-                  ),
-                ),
-              ),
-            );
-          },
-        ).then((value) => safeSetState(() {}));
-      }
-
-      FFAppState().update(() {});
-      if (arrivalPassedThreeHours) {
-        if (FFAppState().tripStatus == 'new') {
+        if (arrivalPassedThreeAndHalfHours &&
+            FFAppState().tripStatus != 'completed') {
           await showModalBottomSheet(
             isScrollControlled: true,
             backgroundColor: Colors.transparent,
@@ -265,43 +353,13 @@ class _HomeWidgetState extends State<HomeWidget> with TickerProviderStateMixin {
             },
           ).then((value) => safeSetState(() {}));
         }
+
+        await actions.handleIncomingShare(
+          context,
+        );
+      } finally {
+        _initialHomeLoadCompleted = true;
       }
-
-      final arrivalPassedThreeAndHalfHours =
-          functions.isArrivalAfterMinutes(FFAppState().arrivalTime, 210) ==
-              true;
-
-      if (arrivalPassedThreeAndHalfHours &&
-          FFAppState().tripStatus != 'completed') {
-        await showModalBottomSheet(
-          isScrollControlled: true,
-          backgroundColor: Colors.transparent,
-          isDismissible: false,
-          enableDrag: false,
-          useSafeArea: true,
-          context: context,
-          builder: (context) {
-            return WebViewAware(
-              child: GestureDetector(
-                onTap: () {
-                  FocusScope.of(context).unfocus();
-                  FocusManager.instance.primaryFocus?.unfocus();
-                },
-                child: Padding(
-                  padding: MediaQuery.viewInsetsOf(context),
-                  child: UpdateMessageWidget(
-                    tripId: FFAppState().currentTripId,
-                  ),
-                ),
-              ),
-            );
-          },
-        ).then((value) => safeSetState(() {}));
-      }
-
-      await actions.handleIncomingShare(
-        context,
-      );
     });
 
     animationsMap.addAll({
@@ -335,9 +393,18 @@ class _HomeWidgetState extends State<HomeWidget> with TickerProviderStateMixin {
   }
 
   @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && _initialHomeLoadCompleted) {
+      _shouldRunPromptCheckOnVisible = true;
+      _scheduleGateSeatPromptCheck(force: true);
+    }
+  }
+
+  @override
   void dispose() {
     // On page dispose action.
     () async {}();
+    WidgetsBinding.instance.removeObserver(this);
 
     _model.dispose();
 
@@ -347,6 +414,9 @@ class _HomeWidgetState extends State<HomeWidget> with TickerProviderStateMixin {
   @override
   Widget build(BuildContext context) {
     context.watch<FFAppState>();
+    if (_initialHomeLoadCompleted && _shouldRunPromptCheckOnVisible) {
+      _scheduleGateSeatPromptCheck(force: true);
+    }
 
     return GestureDetector(
       onTap: () {
@@ -370,6 +440,7 @@ class _HomeWidgetState extends State<HomeWidget> with TickerProviderStateMixin {
                   child: Align(
                     alignment: AlignmentDirectional(0.0, 0.0),
                     child: FutureBuilder<ApiCallResponse>(
+                      key: ValueKey(FFAppState().tripRefreshCounter),
                       future: SupabaseRPCGroup.useDashBoardCall.call(
                         userId: currentUserUid,
                       ),
@@ -1179,7 +1250,7 @@ class _HomeWidgetState extends State<HomeWidget> with TickerProviderStateMixin {
                                                                   .isSeatWindowActive(
                                                                 trip.departureAt,
                                                                 trip.arrivalAt,
-                                                                60,
+                                                                61,
                                                                 60,
                                                               ) ==
                                                               true;
@@ -1298,7 +1369,7 @@ class _HomeWidgetState extends State<HomeWidget> with TickerProviderStateMixin {
                                                                             .departureAt,
                                                                         upComingTripsItem
                                                                             .arrivalAt,
-                                                                        60,
+                                                                        61,
                                                                         60,
                                                                       ) ==
                                                                       true;

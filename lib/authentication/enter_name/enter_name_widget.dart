@@ -235,9 +235,9 @@ class _EnterNameWidgetState extends State<EnterNameWidget>
                               ),
                             ),
                             Align(
-                              alignment: AlignmentDirectional(0.0, 0.0),
+                              alignment: const AlignmentDirectional(0.0, 0.0),
                               child: Padding(
-                                padding: EdgeInsetsDirectional.fromSTEB(
+                                padding: const EdgeInsetsDirectional.fromSTEB(
                                     0.0, 16.0, 0.0, 250.0),
                                 child: FFButtonWidget(
                                   onPressed: () async {

@@ -181,4 +181,10 @@ class FFAppState extends ChangeNotifier {
   set tripStatus(String value) {
     _tripStatus = value;
   }
+
+  int _tripRefreshCounter = 0;
+  int get tripRefreshCounter => _tripRefreshCounter;
+  set tripRefreshCounter(int value) {
+    _tripRefreshCounter = value;
+  }
 }

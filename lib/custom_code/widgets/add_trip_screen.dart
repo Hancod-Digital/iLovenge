@@ -3059,8 +3059,12 @@ class _AddTripScreenState extends State<AddTripScreen> {
 
       // Navigate back after successful save
       if (mounted) {
+        FFAppState().update(() {
+          FFAppState().tripRefreshCounter =
+              FFAppState().tripRefreshCounter + 1;
+        });
         // print('Navigation back...'); // Debug log
-        Navigator.pop(context);
+        Navigator.pop(context, true);
       }
     } catch (e) {
       print('Error saving trip details: ${e.toString()}'); // Debug log

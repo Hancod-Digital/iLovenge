@@ -236,6 +236,7 @@ class _MyticketsWidgetState extends State<MyticketsWidget> {
                         Container(
                           decoration: BoxDecoration(),
                           child: custom_widgets.GroupedListView(
+                            key: ValueKey(FFAppState().tripRefreshCounter),
                             width: double.infinity,
                             height: 500.0,
                           ),
