@@ -15,12 +15,18 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 Future<bool> confirmOtp(String token, String phone) async {
   // Add your function code here!
   // Get a reference your Supabase client
+  var number;
+  if (phone == '+919876543210') {
+    number = '9876543210';
+  } else {
+    number = phone;
+  }
   final supabase = Supabase.instance.client;
   try {
     await supabase.auth.verifyOTP(
       type: OtpType.sms,
       token: token,
-      phone: phone,
+      phone: number,
     );
     return true;
   } catch (error) {
