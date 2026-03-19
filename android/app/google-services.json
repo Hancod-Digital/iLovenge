@@ -12,7 +12,36 @@
           "package_name": "com.ilovenge.mobile"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "245118608879-648tp41hc8idiifbbhisa6k9k66ikut9.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.ilovenge.mobile",
+            "certificate_hash": "6b658dd22a11edd7a6bc0fd20786c8b82e0443a7"
+          }
+        },
+        {
+          "client_id": "245118608879-emnajova9mgirmusfnarpjol1vjuqu0f.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.ilovenge.mobile",
+            "certificate_hash": "6721cfb3550602d6e3aa40ac2778f80f27d6af88"
+          }
+        },
+        {
+          "client_id": "245118608879-vks3rf0uh4is8qd53p71hr87h0hn8vng.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.ilovenge.mobile",
+            "certificate_hash": "764dcd9661543e9bd96733c114923c9bef655eb6"
+          }
+        },
+        {
+          "client_id": "245118608879-q6hkijmhmkvbnu92198henr09qnu0q1f.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyBzDqOrUEON6up6155uISfIhpYBBGrX6_A"
@@ -20,7 +49,20 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "245118608879-f995h5opikd93ropkj89i2m6ecdf7ptp.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "245118608879-p27q80bsr8qjogfn5dj1ro1ujrshdblg.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.ilovenge.mobile",
+                "app_store_id": "6739934241"
+              }
+            }
+          ]
         }
       }
     }

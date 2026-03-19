@@ -257,14 +257,27 @@ class _HomeWidgetState extends State<HomeWidget>
         await _checkAndShowGateSeatPrompts();
 
         _model.beltNotAdded = await actions.addBeltNumber();
-        final arrivalAtOrPast =
-            functions.isArrivalAfterMinutes(FFAppState().arrivalTime, 0) ==
-                true;
+        final arrivalTimeUtc =
+            DateTime.tryParse(FFAppState().arrivalTime)?.toUtc();
+        final nowUtc = DateTime.now().toUtc();
+        final arrivalWindowEndUtc =
+            arrivalTimeUtc?.add(const Duration(hours: 2));
+        final arrivalAtOrPast = arrivalTimeUtc != null &&
+            (nowUtc.isAtSameMomentAs(arrivalTimeUtc) ||
+                nowUtc.isAfter(arrivalTimeUtc));
+        final arrivalWithinTwoHours = arrivalWindowEndUtc != null &&
+            (nowUtc.isAtSameMomentAs(arrivalWindowEndUtc) ||
+                nowUtc.isBefore(arrivalWindowEndUtc));
         final arrivalPassedThreeHours =
             functions.isArrivalAfterMinutes(FFAppState().arrivalTime, 180) ==
                 true;
+        final arrivalPassedSixHours =
+            functions.isArrivalAfterMinutes(FFAppState().arrivalTime, 360) ==
+                true;
 
-        if (_model.beltNotAdded == true && arrivalAtOrPast) {
+        if (_model.beltNotAdded == true &&
+            arrivalAtOrPast &&
+            arrivalWithinTwoHours) {
           await showModalBottomSheet(
             isScrollControlled: true,
             backgroundColor: Colors.transparent,
@@ -284,6 +297,7 @@ class _HomeWidgetState extends State<HomeWidget>
                     child: UpdateBeltWidget(
                       tripId: FFAppState().currentTripId,
                       updateState: (belt) async {},
+                      initialBelt: FFAppState().beltNumber,
                     ),
                   ),
                 ),
@@ -293,7 +307,7 @@ class _HomeWidgetState extends State<HomeWidget>
         }
 
         FFAppState().update(() {});
-        if (arrivalPassedThreeHours) {
+        if (arrivalPassedThreeHours && !arrivalPassedSixHours) {
           if (FFAppState().tripStatus == 'new') {
             await showModalBottomSheet(
               isScrollControlled: true,
@@ -327,6 +341,7 @@ class _HomeWidgetState extends State<HomeWidget>
                 true;
 
         if (arrivalPassedThreeAndHalfHours &&
+            !arrivalPassedSixHours &&
             FFAppState().tripStatus != 'completed') {
           await showModalBottomSheet(
             isScrollControlled: true,
@@ -2450,53 +2465,85 @@ class _HomeWidgetState extends State<HomeWidget>
                                                                                                           ),
                                                                                                         ),
                                                                                                       if (arrivalPassed && upComingTripsItem.belt.isNotEmpty)
-                                                                                                        Padding(
-                                                                                                          padding: EdgeInsetsDirectional.fromSTEB(0.0, 8.0, 0.0, 0.0),
-                                                                                                          child: Column(
-                                                                                                            crossAxisAlignment: CrossAxisAlignment.start,
-                                                                                                            children: [
-                                                                                                              const Divider(
-                                                                                                                thickness: 1,
-                                                                                                              ),
-                                                                                                              Text(
-                                                                                                                'Belt Number',
-                                                                                                                style: FlutterFlowTheme.of(context).bodyMedium.override(
-                                                                                                                      font: GoogleFonts.roboto(
+                                                                                                        InkWell(
+                                                                                                          splashColor: Colors.transparent,
+                                                                                                          focusColor: Colors.transparent,
+                                                                                                          hoverColor: Colors.transparent,
+                                                                                                          highlightColor: Colors.transparent,
+                                                                                                          onTap: () async {
+                                                                                                            await showModalBottomSheet(
+                                                                                                              isScrollControlled: true,
+                                                                                                              backgroundColor: Colors.transparent,
+                                                                                                              useSafeArea: true,
+                                                                                                              context: context,
+                                                                                                              builder: (context) {
+                                                                                                                return WebViewAware(
+                                                                                                                  child: GestureDetector(
+                                                                                                                    onTap: () {
+                                                                                                                      FocusScope.of(context).unfocus();
+                                                                                                                      FocusManager.instance.primaryFocus?.unfocus();
+                                                                                                                    },
+                                                                                                                    child: Padding(
+                                                                                                                      padding: MediaQuery.viewInsetsOf(context),
+                                                                                                                      child: UpdateBeltWidget(
+                                                                                                                        tripId: upComingTripsItem.id,
+                                                                                                                        updateState: (belt) async {},
+                                                                                                                        initialBelt: upComingTripsItem.belt,
+                                                                                                                      ),
+                                                                                                                    ),
+                                                                                                                  ),
+                                                                                                                );
+                                                                                                              },
+                                                                                                            ).then((value) => safeSetState(() {}));
+                                                                                                          },
+                                                                                                          child: Padding(
+                                                                                                            padding: EdgeInsetsDirectional.fromSTEB(0.0, 8.0, 0.0, 0.0),
+                                                                                                            child: Column(
+                                                                                                              crossAxisAlignment: CrossAxisAlignment.start,
+                                                                                                              children: [
+                                                                                                                const Divider(
+                                                                                                                  thickness: 1,
+                                                                                                                ),
+                                                                                                                Text(
+                                                                                                                  'Belt Number',
+                                                                                                                  style: FlutterFlowTheme.of(context).bodyMedium.override(
+                                                                                                                        font: GoogleFonts.roboto(
+                                                                                                                          fontWeight: FlutterFlowTheme.of(context).bodyMedium.fontWeight,
+                                                                                                                          fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
+                                                                                                                        ),
+                                                                                                                        color: FlutterFlowTheme.of(context).secondaryText,
+                                                                                                                        letterSpacing: 0.0,
                                                                                                                         fontWeight: FlutterFlowTheme.of(context).bodyMedium.fontWeight,
                                                                                                                         fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
                                                                                                                       ),
-                                                                                                                      color: FlutterFlowTheme.of(context).secondaryText,
-                                                                                                                      letterSpacing: 0.0,
-                                                                                                                      fontWeight: FlutterFlowTheme.of(context).bodyMedium.fontWeight,
-                                                                                                                      fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
-                                                                                                                    ),
-                                                                                                              ),
-                                                                                                              Row(
-                                                                                                                children: [
-                                                                                                                  Text(
-                                                                                                                    upComingTripsItem.belt,
-                                                                                                                    style: FlutterFlowTheme.of(context).bodyMedium.override(
-                                                                                                                          font: GoogleFonts.roboto(
+                                                                                                                ),
+                                                                                                                Row(
+                                                                                                                  children: [
+                                                                                                                    Text(
+                                                                                                                      upComingTripsItem.belt,
+                                                                                                                      style: FlutterFlowTheme.of(context).bodyMedium.override(
+                                                                                                                            font: GoogleFonts.roboto(
+                                                                                                                              fontWeight: FontWeight.w900,
+                                                                                                                              fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
+                                                                                                                            ),
+                                                                                                                            fontSize: 45.0,
+                                                                                                                            letterSpacing: 0.0,
                                                                                                                             fontWeight: FontWeight.w900,
                                                                                                                             fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
                                                                                                                           ),
-                                                                                                                          fontSize: 45.0,
-                                                                                                                          letterSpacing: 0.0,
-                                                                                                                          fontWeight: FontWeight.w900,
-                                                                                                                          fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
-                                                                                                                        ),
-                                                                                                                  ),
-                                                                                                                  const SizedBox(
-                                                                                                                    width: 10,
-                                                                                                                  ),
-                                                                                                                  SvgPicture.asset(
-                                                                                                                    'assets/images/belt.svg',
-                                                                                                                    width: 40.0,
-                                                                                                                    height: 40.0,
-                                                                                                                  ),
-                                                                                                                ],
-                                                                                                              ),
-                                                                                                            ],
+                                                                                                                    ),
+                                                                                                                    const SizedBox(
+                                                                                                                      width: 10,
+                                                                                                                    ),
+                                                                                                                    SvgPicture.asset(
+                                                                                                                      'assets/images/belt.svg',
+                                                                                                                      width: 40.0,
+                                                                                                                      height: 40.0,
+                                                                                                                    ),
+                                                                                                                  ],
+                                                                                                                ),
+                                                                                                              ],
+                                                                                                            ),
                                                                                                           ),
                                                                                                         ),
                                                                                                       const Row(

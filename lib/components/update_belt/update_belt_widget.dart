@@ -14,10 +14,12 @@ class UpdateBeltWidget extends StatefulWidget {
     super.key,
     required this.tripId,
     this.updateState,
+    this.initialBelt,
   });
 
   final String? tripId;
   final Future Function(String belt)? updateState;
+  final String? initialBelt;
 
   @override
   State<UpdateBeltWidget> createState() => _UpdateBeltWidgetState();
@@ -37,7 +39,8 @@ class _UpdateBeltWidgetState extends State<UpdateBeltWidget> {
     super.initState();
     _model = createModel(context, () => UpdateBeltModel());
 
-    _model.textController ??= TextEditingController();
+    _model.textController ??=
+        TextEditingController(text: widget.initialBelt ?? '');
     _model.textFieldFocusNode ??= FocusNode();
 
     WidgetsBinding.instance.addPostFrameCallback((_) => safeSetState(() {}));
@@ -104,8 +107,7 @@ class _UpdateBeltWidgetState extends State<UpdateBeltWidget> {
                     ),
                   ),
                   Padding(
-                    padding:
-                        EdgeInsetsDirectional.fromSTEB(0.0, 6.0, 0.0, 6.0),
+                    padding: EdgeInsetsDirectional.fromSTEB(0.0, 6.0, 0.0, 6.0),
                     child: Text(
                       'Belt Number',
                       style: FlutterFlowTheme.of(context).bodyMedium.override(
@@ -118,8 +120,9 @@ class _UpdateBeltWidgetState extends State<UpdateBeltWidget> {
                             fontSize: 16.0,
                             letterSpacing: 0.0,
                             fontWeight: FontWeight.w600,
-                            fontStyle:
-                                FlutterFlowTheme.of(context).bodyMedium.fontStyle,
+                            fontStyle: FlutterFlowTheme.of(context)
+                                .bodyMedium
+                                .fontStyle,
                           ),
                     ),
                   ),
@@ -197,37 +200,35 @@ class _UpdateBeltWidgetState extends State<UpdateBeltWidget> {
                         decoration: InputDecoration(
                           isDense: true,
                           labelText: 'Belt Number',
-                          labelStyle: FlutterFlowTheme.of(context)
-                              .labelMedium
-                              .override(
-                                font: GoogleFonts.inter(
-                                  fontWeight: FontWeight.w500,
-                                  fontStyle: FlutterFlowTheme.of(context)
-                                      .labelMedium
-                                      .fontStyle,
-                                ),
-                                letterSpacing: 0.0,
-                                fontWeight: FontWeight.w500,
-                                fontStyle: FlutterFlowTheme.of(context)
-                                    .labelMedium
-                                    .fontStyle,
-                              ),
+                          labelStyle:
+                              FlutterFlowTheme.of(context).labelMedium.override(
+                                    font: GoogleFonts.inter(
+                                      fontWeight: FontWeight.w500,
+                                      fontStyle: FlutterFlowTheme.of(context)
+                                          .labelMedium
+                                          .fontStyle,
+                                    ),
+                                    letterSpacing: 0.0,
+                                    fontWeight: FontWeight.w500,
+                                    fontStyle: FlutterFlowTheme.of(context)
+                                        .labelMedium
+                                        .fontStyle,
+                                  ),
                           hintText: 'Belt 5',
-                          hintStyle: FlutterFlowTheme.of(context)
-                              .labelMedium
-                              .override(
-                                font: GoogleFonts.inter(
-                                  fontWeight: FontWeight.w500,
-                                  fontStyle: FlutterFlowTheme.of(context)
-                                      .labelMedium
-                                      .fontStyle,
-                                ),
-                                letterSpacing: 0.0,
-                                fontWeight: FontWeight.w500,
-                                fontStyle: FlutterFlowTheme.of(context)
-                                    .labelMedium
-                                    .fontStyle,
-                              ),
+                          hintStyle:
+                              FlutterFlowTheme.of(context).labelMedium.override(
+                                    font: GoogleFonts.inter(
+                                      fontWeight: FontWeight.w500,
+                                      fontStyle: FlutterFlowTheme.of(context)
+                                          .labelMedium
+                                          .fontStyle,
+                                    ),
+                                    letterSpacing: 0.0,
+                                    fontWeight: FontWeight.w500,
+                                    fontStyle: FlutterFlowTheme.of(context)
+                                        .labelMedium
+                                        .fontStyle,
+                                  ),
                           enabledBorder: InputBorder.none,
                           focusedBorder: InputBorder.none,
                           errorBorder: InputBorder.none,
@@ -244,8 +245,8 @@ class _UpdateBeltWidgetState extends State<UpdateBeltWidget> {
                                   .bodyMediumIsCustom,
                             ),
                         cursorColor: FlutterFlowTheme.of(context).primaryText,
-                        validator: _model.textControllerValidator
-                            .asValidator(context),
+                        validator:
+                            _model.textControllerValidator.asValidator(context),
                       ),
                     ),
                   ),
@@ -279,8 +280,8 @@ class _UpdateBeltWidgetState extends State<UpdateBeltWidget> {
                         height: 40.0,
                         padding: EdgeInsetsDirectional.fromSTEB(
                             16.0, 0.0, 16.0, 0.0),
-                        iconPadding: EdgeInsetsDirectional.fromSTEB(
-                            0.0, 0.0, 0.0, 0.0),
+                        iconPadding:
+                            EdgeInsetsDirectional.fromSTEB(0.0, 0.0, 0.0, 0.0),
                         color: FlutterFlowTheme.of(context).primary,
                         textStyle:
                             FlutterFlowTheme.of(context).titleSmall.override(
