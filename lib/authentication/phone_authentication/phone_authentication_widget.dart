@@ -1,4 +1,5 @@
 import '/auth/supabase_auth/auth_util.dart';
+import '/auth/supabase_auth/apple_auth.dart';
 import '/backend/supabase/supabase.dart';
 import '/flutter_flow/flutter_flow_animations.dart';
 import '/flutter_flow/flutter_flow_drop_down.dart';
@@ -40,6 +41,43 @@ class _PhoneAuthenticationWidgetState extends State<PhoneAuthenticationWidget>
   final scaffoldKey = GlobalKey<ScaffoldState>();
 
   final animationsMap = <String, AnimationInfo>{};
+
+  String _nameFromEmail(String email) {
+    final localPart = email.split('@').first.trim();
+    if (localPart.isEmpty) {
+      return '';
+    }
+
+    final normalized = localPart.replaceAll(RegExp(r'[._\-]+'), ' ').trim();
+    if (normalized.isEmpty) {
+      return '';
+    }
+
+    final words = normalized
+        .split(RegExp(r'\s+'))
+        .where((word) => word.trim().isNotEmpty)
+        .map((word) {
+      final lower = word.toLowerCase();
+      return '${lower[0].toUpperCase()}${lower.substring(1)}';
+    }).toList();
+    return words.join(' ').trim();
+  }
+
+  String _resolvedAppleName({
+    required String authName,
+    required String authEmail,
+  }) {
+    if (authName.trim().isNotEmpty) {
+      return authName.trim();
+    }
+
+    final emailDerivedName = _nameFromEmail(authEmail);
+    if (emailDerivedName.isNotEmpty) {
+      return emailDerivedName;
+    }
+
+    return 'Apple User';
+  }
 
   @override
   void initState() {
@@ -583,6 +621,7 @@ class _PhoneAuthenticationWidgetState extends State<PhoneAuthenticationWidget>
                         mainAxisSize: MainAxisSize.max,
                         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                         children: [
+                          // Email button
                           InkWell(
                             splashColor: Colors.transparent,
                             focusColor: Colors.transparent,
@@ -591,14 +630,27 @@ class _PhoneAuthenticationWidgetState extends State<PhoneAuthenticationWidget>
                             onTap: () async {
                               context.pushNamed(EmailOtpWidget.routeName);
                             },
-                            child: ClipRRect(
-                              borderRadius: BorderRadius.circular(8.0),
-                              child: SvgPicture.asset(
-                                'assets/images/gmail.svg',
-                                fit: BoxFit.cover,
+                            child: Container(
+                              width: 52.0,
+                              height: 52.0,
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF1A1A1A),
+                                borderRadius: BorderRadius.circular(10.0),
+                                border: Border.all(
+                                    color: const Color(0xFF444444), width: 1.0),
+                              ),
+                              child: Center(
+                                child: SvgPicture.asset(
+                                  'assets/images/gmail.svg',
+                                  width: 24.0,
+                                  height: 24.0,
+                                  fit: BoxFit.contain,
+                                ),
                               ),
                             ),
                           ),
+
+                          // Apple button (iOS only)
                           if (isiOS)
                             InkWell(
                               splashColor: Colors.transparent,
@@ -609,56 +661,107 @@ class _PhoneAuthenticationWidgetState extends State<PhoneAuthenticationWidget>
                                 GoRouter.of(context).prepareAuthEvent();
                                 final user =
                                     await authManager.signInWithApple(context);
-                                if (user == null) {
-                                  return;
-                                }
+                                if (user == null) return;
                                 _model.auth = await actions.checkAuth();
                                 if (_model.auth!) {
+                                  final appleEmail =
+                                      (lastAppleSignInEmail ?? currentUserEmail)
+                                          .trim();
+                                  final appleName = _resolvedAppleName(
+                                    authName: (lastAppleSignInName ??
+                                            currentUserDisplayName)
+                                        .trim(),
+                                    authEmail: appleEmail,
+                                  );
                                   _model.users = await UsersTable().queryRows(
-                                    queryFn: (q) => q.eqOrNull(
-                                      'id',
-                                      currentUserUid,
-                                    ),
+                                    queryFn: (q) =>
+                                        q.eqOrNull('id', currentUserUid),
                                   );
                                   if (_model.users != null &&
                                       (_model.users)!.isNotEmpty) {
+                                    final existingUser = _model.users!.first;
+                                    final existingName =
+                                        existingUser.name?.trim() ?? '';
+                                    final existingEmail =
+                                        existingUser.email?.trim() ?? '';
+                                    final updateData = <String, dynamic>{
+                                      'fcm_token': FFAppState().fcmToken,
+                                    };
+                                    if (existingName.isEmpty &&
+                                        appleName.isNotEmpty) {
+                                      updateData['name'] = appleName;
+                                    }
+                                    if (existingEmail.isEmpty &&
+                                        appleEmail.isNotEmpty) {
+                                      updateData['email'] = appleEmail;
+                                    }
                                     await UsersTable().update(
-                                      data: {
-                                        'fcm_token': FFAppState().fcmToken,
-                                      },
-                                      matchingRows: (rows) => rows.eqOrNull(
-                                        'id',
-                                        currentUserUid,
-                                      ),
+                                      data: updateData,
+                                      matchingRows: (rows) =>
+                                          rows.eqOrNull('id', currentUserUid),
                                     );
-
-                                    context.goNamedAuth(
-                                        HomeWidget.routeName, context.mounted);
+                                    if (existingName.isNotEmpty) {
+                                      context.goNamedAuth(HomeWidget.routeName,
+                                          context.mounted);
+                                    } else if (updateData['name'] != null) {
+                                      context.pushNamedAuth(
+                                          ShouldAddCardWidget.routeName,
+                                          context.mounted);
+                                    } else {
+                                      context.pushNamedAuth(
+                                          EnterNameWidget.routeName,
+                                          context.mounted);
+                                    }
                                   } else {
-                                    await UsersTable().insert({
+                                    final insertData = <String, dynamic>{
                                       'id': currentUserUid,
                                       'user_type': 'CUSTOMER',
                                       'fcm_token': FFAppState().fcmToken,
-                                    });
-
-                                    context.pushNamedAuth(
-                                        EnterNameWidget.routeName,
-                                        context.mounted);
+                                    };
+                                    if (appleName.isNotEmpty) {
+                                      insertData['name'] = appleName;
+                                    }
+                                    if (appleEmail.isNotEmpty) {
+                                      insertData['email'] = appleEmail;
+                                    }
+                                    await UsersTable().insert(insertData);
+                                    if (appleName.isNotEmpty) {
+                                      context.pushNamedAuth(
+                                          ShouldAddCardWidget.routeName,
+                                          context.mounted);
+                                    } else {
+                                      context.pushNamedAuth(
+                                          EnterNameWidget.routeName,
+                                          context.mounted);
+                                    }
                                   }
                                 }
-
                                 safeSetState(() {});
                               },
-                              child: ClipRRect(
-                                borderRadius: BorderRadius.circular(8.0),
-                                child: SvgPicture.asset(
-                                  color: Colors.white,
-                                  'assets/images/Apple.svg',
-                                  fit: BoxFit.cover,
-                                  alignment: Alignment(0.0, 0.0),
+                              child: Container(
+                                width: 52.0,
+                                height: 52.0,
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFF1A1A1A),
+                                  borderRadius: BorderRadius.circular(10.0),
+                                  border: Border.all(
+                                      color: const Color(0xFF444444),
+                                      width: 1.0),
+                                ),
+                                child: Center(
+                                  child: SvgPicture.asset(
+                                    'assets/images/Apple.svg',
+                                    width: 24.0,
+                                    height: 24.0,
+                                    colorFilter: const ColorFilter.mode(
+                                        Colors.white, BlendMode.srcIn),
+                                    fit: BoxFit.contain,
+                                  ),
                                 ),
                               ),
                             ),
+
+                          // Google button
                           InkWell(
                             splashColor: Colors.transparent,
                             focusColor: Colors.transparent,
@@ -668,29 +771,20 @@ class _PhoneAuthenticationWidgetState extends State<PhoneAuthenticationWidget>
                               GoRouter.of(context).prepareAuthEvent();
                               final user =
                                   await authManager.signInWithGoogle(context);
-                              if (user == null) {
-                                return;
-                              }
+                              if (user == null) return;
                               _model.auth = await actions.checkAuth();
                               if (_model.auth!) {
                                 _model.users = await UsersTable().queryRows(
-                                  queryFn: (q) => q.eqOrNull(
-                                    'id',
-                                    currentUserUid,
-                                  ),
+                                  queryFn: (q) =>
+                                      q.eqOrNull('id', currentUserUid),
                                 );
                                 if (_model.users != null &&
                                     (_model.users)!.isNotEmpty) {
                                   await UsersTable().update(
-                                    data: {
-                                      'fcm_token': FFAppState().fcmToken,
-                                    },
-                                    matchingRows: (rows) => rows.eqOrNull(
-                                      'id',
-                                      currentUserUid,
-                                    ),
+                                    data: {'fcm_token': FFAppState().fcmToken},
+                                    matchingRows: (rows) =>
+                                        rows.eqOrNull('id', currentUserUid),
                                   );
-
                                   context.goNamedAuth(
                                       HomeWidget.routeName, context.mounted);
                                 } else {
@@ -699,30 +793,37 @@ class _PhoneAuthenticationWidgetState extends State<PhoneAuthenticationWidget>
                                     'user_type': 'CUSTOMER',
                                     'fcm_token': FFAppState().fcmToken,
                                   });
-
                                   context.pushNamedAuth(
                                       EnterNameWidget.routeName,
                                       context.mounted);
                                 }
                               }
-
                               safeSetState(() {});
                             },
-                            child: ClipRRect(
-                              borderRadius: BorderRadius.circular(8.0),
-                              child: SvgPicture.asset(
-                                color: Colors.white,
-                                height: 20,
-                                width: 20,
-                                'assets/images/google.svg',
-                                fit: BoxFit.cover,
-                                alignment: Alignment(0.0, 0.0),
+                            child: Container(
+                              width: 52.0,
+                              height: 52.0,
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF1A1A1A),
+                                borderRadius: BorderRadius.circular(10.0),
+                                border: Border.all(
+                                    color: const Color(0xFF444444), width: 1.0),
+                              ),
+                              child: Center(
+                                child: SvgPicture.asset(
+                                  'assets/images/google.svg',
+                                  width: 24.0,
+                                  height: 24.0,
+                                  colorFilter: const ColorFilter.mode(
+                                      Colors.white, BlendMode.srcIn),
+                                  fit: BoxFit.contain,
+                                ),
                               ),
                             ),
                           ),
                         ]
-                            .addToStart(SizedBox(width: 10.0))
-                            .addToEnd(SizedBox(width: 10.0)),
+                            .addToStart(const SizedBox(width: 10.0))
+                            .addToEnd(const SizedBox(width: 10.0)),
                       ),
                     ]
                         .divide(SizedBox(height: 10.0))

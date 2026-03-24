@@ -6,7 +6,28 @@ import 'package:crypto/crypto.dart';
 
 import '../../backend/supabase/supabase.dart';
 
+String? _lastAppleSignInName;
+String? _lastAppleSignInEmail;
+
+String? get lastAppleSignInName => _lastAppleSignInName;
+String? get lastAppleSignInEmail => _lastAppleSignInEmail;
+
+String? _composeAppleName(AuthorizationCredentialAppleID credential) {
+  final nameParts = [credential.givenName, credential.familyName]
+      .map((part) => part?.trim())
+      .whereType<String>()
+      .where((part) => part.isNotEmpty)
+      .toList();
+  if (nameParts.isEmpty) {
+    return null;
+  }
+  return nameParts.join(' ');
+}
+
 Future<User?> appleSignInFunc() async {
+  _lastAppleSignInName = null;
+  _lastAppleSignInEmail = null;
+
   if (kIsWeb) {
     await SupaFlow.client.auth.signInWithOAuth(
       OAuthProvider.apple,
@@ -29,6 +50,8 @@ Future<User?> appleSignInFunc() async {
     ],
     nonce: hashedNonce,
   );
+  _lastAppleSignInName = _composeAppleName(credential);
+  _lastAppleSignInEmail = credential.email?.trim();
 
   final idToken = credential.identityToken;
   if (idToken == null) {
@@ -41,5 +64,23 @@ Future<User?> appleSignInFunc() async {
     idToken: idToken,
     nonce: rawNonce,
   );
+
+  if (authResponse.user != null &&
+      _lastAppleSignInName != null &&
+      _lastAppleSignInName!.isNotEmpty) {
+    try {
+      await SupaFlow.client.auth.updateUser(
+        UserAttributes(
+          data: {
+            'full_name': _lastAppleSignInName,
+            'name': _lastAppleSignInName,
+          },
+        ),
+      );
+    } on AuthException {
+      // Ignore metadata update failure; login itself already succeeded.
+    }
+  }
+
   return authResponse.user;
 }

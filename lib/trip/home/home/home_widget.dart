@@ -62,6 +62,77 @@ class _HomeWidgetState extends State<HomeWidget>
   bool _shouldRunPromptCheckOnVisible = false;
   DateTime? _lastGateSeatPromptCheckAt;
 
+  bool _isAppleProvider() {
+    final authUser = SupaFlow.client.auth.currentUser;
+    final appMetadata = SupaFlow.client.auth.currentUser?.appMetadata;
+    final provider = appMetadata?['provider']?.toString().toLowerCase();
+    if (provider == 'apple') {
+      return true;
+    }
+
+    final providers = appMetadata?['providers'];
+    if (providers is List) {
+      return providers
+          .any((p) => p.toString().toLowerCase().trim() == 'apple');
+    }
+
+    final identities = authUser?.identities;
+    for (final identity in (identities ?? const [])) {
+      final identityProvider =
+          (identity as dynamic).provider?.toString().toLowerCase().trim();
+      if (identityProvider == 'apple') {
+        return true;
+      }
+    }
+
+    if (currentUserEmail.toLowerCase().trim().endsWith(
+          'privaterelay.appleid.com',
+        )) {
+      return true;
+    }
+
+    return false;
+  }
+
+  String _nameFromEmail(String email) {
+    final localPart = email.split('@').first.trim();
+    if (localPart.isEmpty) {
+      return '';
+    }
+
+    final normalized = localPart.replaceAll(RegExp(r'[._\-]+'), ' ').trim();
+    if (normalized.isEmpty) {
+      return '';
+    }
+
+    final words = normalized
+        .split(RegExp(r'\s+'))
+        .where((word) => word.trim().isNotEmpty)
+        .map((word) {
+      final lower = word.toLowerCase();
+      return '${lower[0].toUpperCase()}${lower.substring(1)}';
+    }).toList();
+    return words.join(' ').trim();
+  }
+
+  String _resolvedNameForCurrentUser() {
+    final authDisplayName = currentUserDisplayName.trim();
+    if (authDisplayName.isNotEmpty) {
+      return authDisplayName;
+    }
+
+    if (_isAppleProvider()) {
+      final authEmail = currentUserEmail.trim();
+      final emailDerivedName = _nameFromEmail(authEmail);
+      if (emailDerivedName.isNotEmpty) {
+        return emailDerivedName;
+      }
+      return 'Apple User';
+    }
+
+    return '';
+  }
+
   Future<void> _checkAndShowGateSeatPrompts() async {
     if (!mounted || _isGateSeatPromptFlowRunning) {
       return;
@@ -241,9 +312,22 @@ class _HomeWidgetState extends State<HomeWidget>
             currentUserUid,
           ),
         );
-        if (!(_model.user?.firstOrNull?.name != null &&
-            _model.user?.firstOrNull?.name != '')) {
-          context.pushNamed(EnterNameWidget.routeName);
+        final existingName = _model.user?.firstOrNull?.name?.trim() ?? '';
+        if (existingName.isEmpty) {
+          final fallbackAuthName = _resolvedNameForCurrentUser();
+          if (fallbackAuthName.isNotEmpty) {
+            await UsersTable().update(
+              data: {
+                'name': fallbackAuthName,
+              },
+              matchingRows: (rows) => rows.eqOrNull(
+                'id',
+                currentUserUid,
+              ),
+            );
+          } else {
+            context.pushNamed(EnterNameWidget.routeName);
+          }
         }
         await UsersTable().update(
           data: {

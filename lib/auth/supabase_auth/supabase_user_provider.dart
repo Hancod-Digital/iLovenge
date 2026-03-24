@@ -10,10 +10,44 @@ class ILOVEngeSupabaseUser extends BaseAuthUser {
   User? user;
   bool get loggedIn => user != null;
 
+  String? _metadataString(List<String> keys) {
+    final metadata = user?.userMetadata;
+    if (metadata == null) {
+      return null;
+    }
+
+    for (final key in keys) {
+      final value = metadata[key];
+      if (value is String && value.trim().isNotEmpty) {
+        return value.trim();
+      }
+    }
+    return null;
+  }
+
+  String? _displayNameFromMetadata() {
+    final fullName = _metadataString(
+      ['full_name', 'name', 'display_name', 'user_name', 'preferred_username'],
+    );
+    if (fullName != null) {
+      return fullName;
+    }
+
+    final givenName = _metadataString(['given_name', 'first_name']);
+    final familyName = _metadataString(['family_name', 'last_name']);
+    final nameParts = [givenName, familyName]
+        .whereType<String>()
+        .where((part) => part.isNotEmpty)
+        .toList();
+    return nameParts.isEmpty ? null : nameParts.join(' ');
+  }
+
   @override
   AuthUserInfo get authUserInfo => AuthUserInfo(
         uid: user?.id,
         email: user?.email,
+        displayName: _displayNameFromMetadata(),
+        photoUrl: _metadataString(['avatar_url', 'picture', 'photo_url']),
         phoneNumber: user?.phone,
       );
 
